@@ -1,5 +1,8 @@
 {
-    "blocked": [
+    "whitelist": [
+        "notepad.exe"
+    ],
+    "blacklist": [
         "chrome.exe",
         "discord.exe",
         "vlc.exe",

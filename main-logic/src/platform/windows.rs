@@ -48,3 +48,30 @@ pub fn get_foreground_process_name() -> Option<String> {
     }
     None
 }
+
+pub fn list_running_process_names() -> Vec<String> {
+    let mut names = Vec::new();
+    unsafe {
+        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(s) => s,
+            Err(_) => return names,
+        };
+        let mut entry = PROCESSENTRY32 {
+            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
+            ..Default::default()
+        };
+        if Process32First(snapshot, &mut entry).is_ok() {
+            loop {
+                let raw_name = entry.szExeFile.as_ptr();
+                let name = CStr::from_ptr(raw_name as *const i8)
+                    .to_string_lossy()
+                    .into_owned();
+                names.push(name);
+                if Process32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    names
+}

@@ -1,65 +1,72 @@
 mod logger;
-mod blacklist;
+mod apprules;
 mod platform;
 mod metrics;
 mod session;
 
 use std::{thread, time::Duration};
-use blacklist::Blacklist;
-use platform::get_foreground_process_name;
+use apprules::AppRules;
+use platform::{get_foreground_process_name, list_running_process_names};
 use logger::log_event;
 use metrics::Metrics;
 use session::FocusSession;
 
 fn main() {
-    let blacklist = Blacklist::new();
+    let apprules = AppRules::new();
     let mut metrics = Metrics::new();
     let mut current_session: Option<FocusSession> = None;
     
     loop {
+        let running_processes = list_running_process_names();
+        let any_work_app_running = running_processes.iter().any(|name| apprules.is_work_app(name));
+
         if let Some(proc) = get_foreground_process_name() {
-            let blocked = blacklist.is_blocked(&proc);
-            log_event(&proc, blocked);
+            let is_work = apprules.is_work_app(&proc);
+            let is_blocked = apprules.is_blocked(&proc);
+            log_event(&proc, is_blocked);
             
-            if blocked {
+            if is_blocked {
                 println!("    Blocked app in focus: {}", proc);
+                if current_session.is_some() {
+                    println!("    DISTRACTION DETECTED! (popup placeholder)");
+                }
+            } else if is_work {
+                println!("    Work app in focus: {}", proc);
             } else {
-                println!("    Allowed app in focus: {}", proc);
+                println!("    Neutral app in focus: {}", proc);
             }
 
-            metrics.update(&proc, blocked);
+            metrics.update(&proc, is_blocked);
 
             // start a session if not already in one and this is a work apps
-            if !blocked && current_session.is_none() {
+            if any_work_app_running && current_session.is_none() {
                 println!("\n--- Focus Session Started ---");
-                current_session = Some(FocusSession::new(vec![proc.clone()]));
+                // collect all running work apps at session start
+                let work_apps: Vec<String> = running_processes.iter().filter(|name| apprules.is_work_app(name)).cloned().collect();
+                current_session = Some(FocusSession::new(work_apps));
             }
-            // if already in a session, update work_apps if new app
+            // if already in a session, update work_apps if new work app appears
             if let Some(session) = current_session.as_mut() {
-                if !session.work_apps.contains(&proc) && !blocked {
-                    session.work_apps.push(proc.clone());
+                for name in running_processes.iter().filter(|name| apprules.is_work_app(name)) {
+                    if !session.work_apps.contains(&proc) {
+                        session.work_apps.push(name.clone());
+                    }
                 }
             }
         } else {
             println!("Could not detect foreground app.");
         }
 
-        // end session if no work app is in focus
+        // end session if no whitelisted app is in the foregound
         if let Some(session) = current_session.as_mut() {
-            if let Some(proc) = get_foreground_process_name() {
-                if blacklist.is_blocked(&proc) {
-                    // still in focus session, do nothing
-                } else {
-                    // still in focus session, do nothing
-                }
-            } else {
-                // no app detected, end session
+            if !any_work_app_running {
                 session.end();
-                println!("\n--- Focus Session ended ----");
+                println!("\n--- Focus Session Ended ---");
                 if let Some(duration) = session.duration() {
                     println!("Session Duration: {:.2?}", duration);
                 }
                 println!("Apps Used: {:?}", session.work_apps);
+                session.log_to_file();
                 current_session = None;
             }
         }

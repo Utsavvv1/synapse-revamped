@@ -1,6 +1,8 @@
 use std::time::{SystemTime, Duration};
-
-#[derive(Debug)]
+use std::fs::OpenOptions;
+use std::io::Write;
+use serde::Serialize;
+#[derive(Debug, Serialize)]
 pub struct FocusSession {
     pub start_time: SystemTime,
     pub end_time: Option<SystemTime>,
@@ -26,5 +28,17 @@ impl FocusSession {
     pub fn duration(&self) -> Option<Duration> {
         self.end_time
             .and_then(|end| end.duration_since(self.start_time).ok())
+    }
+
+    pub fn log_to_file(&self) {
+        if let Ok(json) = serde_json::to_string(self) {
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("synapse.log")
+            {
+                let _ = writeln!(file, "SESSION: {}", json);
+            }
+        }
     }
 }
