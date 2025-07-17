@@ -1,10 +1,10 @@
 mod logger;
-mod monitor;
 mod blacklist;
+mod platform;
 
 use std::{thread, time::Duration};
 use blacklist::Blacklist;
-use monitor::get_foreground_process_name;
+use platform::get_foreground_process_name;
 use logger::log_event;
 
 fn main() {
