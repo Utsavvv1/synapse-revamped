@@ -1,0 +1,8 @@
+{
+    "blocked": [
+        "chrome.exe",
+        "discord.exe",
+        "vlc.exe",
+        "spofity.exe"
+    ]
+}
