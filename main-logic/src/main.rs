@@ -15,26 +15,32 @@ fn main() {
     let apprules = AppRules::new();
     let mut metrics = Metrics::new();
     let mut current_session: Option<FocusSession> = None;
+    let mut last_distraction_app: Option<String> = None;
     
     loop {
         let running_processes = list_running_process_names();
         let any_work_app_running = running_processes.iter().any(|name| apprules.is_work_app(name));
 
         if let Some(proc) = get_foreground_process_name() {
-            let is_work = apprules.is_work_app(&proc);
-            let is_blocked = apprules.is_blocked(&proc);
+            let proc_lc = proc.to_lowercase();
+            let is_work = apprules.is_work_app(&proc_lc);
+            let is_blocked = apprules.is_blocked(&proc_lc);
             log_event(&proc, is_blocked);
             
             if is_blocked {
                 println!("    Blocked app in focus: {}", proc);
                 if current_session.is_some() {
-                    println!("    (DEBUG: About to show popup for {})", proc);
-                    show_distraction_popup(&proc);
+                    if last_distraction_app.as_deref() != Some(&proc_lc) {
+                        show_distraction_popup(&proc);
+                        last_distraction_app = Some(proc_lc.clone());
+                    }
                 }
             } else if is_work {
                 println!("    Work app in focus: {}", proc);
+                last_distraction_app = None;
             } else {
                 println!("    Neutral app in focus: {}", proc);
+                last_distraction_app = None;
             }
 
             metrics.update(&proc, is_blocked);
@@ -56,6 +62,7 @@ fn main() {
             }
         } else {
             println!("Could not detect foreground app.");
+            last_distraction_app = None;
         }
 
         // end session if no whitelisted app is in the foregound
