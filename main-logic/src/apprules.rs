@@ -23,18 +23,35 @@ impl AppRules {
             let parsed: AppRulesFile = serde_json::from_str(&contents)
                 .expect("apprules.json has invalid format");
             AppRules {
-                whitelist: parsed.whitelist.into_iter().map(|s| s.to_lowercase()).collect(),
-                blacklist: parsed.blacklist.into_iter().map(|s| s.to_lowercase()).collect(),
+                whitelist: Self::expand_names(parsed.whitelist),
+                blacklist: Self::expand_names(parsed.blacklist),
             }
         } else {
             println!("    apprules.json not found - using default rules.");
-            let whitelist = vec!["code.exe", "notepad.exe", "cursor.exe", "windowsterminal.exe"];
-            let blacklist = vec!["chrome.exe", "discord.exe", "vlc.exe", "spotify.exe"];
+            let whitelist = vec!["code", "notepad", "cursor", "windowsterminal"]
+                .into_iter().map(|s| s.to_string()).collect();
+            let blacklist = vec!["chrome", "discord", "vlc", "spotify"]
+                .into_iter().map(|s| s.to_string()).collect();
             AppRules {
-                whitelist: whitelist.into_iter().map(|s| s.to_lowercase()).collect(),
-                blacklist: blacklist.into_iter().map(|s| s.to_lowercase()).collect(),
+                whitelist: Self::expand_names(whitelist),
+                blacklist: Self::expand_names(blacklist),
             }
         }
+    }
+
+    fn expand_names(names: Vec<String>) -> Vec<String> {
+        let mut expanded = Vec::new();
+        for name in names {
+            let name_lc = name.to_lowercase();
+            expanded.push(name_lc.clone());
+            #[cfg(target_os = "windows")]
+            {
+                if !name_lc.ends_with(".exe") {
+                    expanded.push(format!("{}.exe", name_lc));
+                }
+            }
+        }
+        expanded
     }
 
     pub fn is_work_app(&self, process_name: &str) -> bool {

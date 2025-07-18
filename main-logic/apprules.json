@@ -1,11 +1,13 @@
 {
     "whitelist": [
-        "notepad.exe"
+        "notepad",
+        "emacs",
+        "winword"
     ],
     "blacklist": [
-        "chrome.exe",
-        "discord.exe",
-        "vlc.exe",
-        "spofity.exe"
+        "chrome",
+        "discord",
+        "vlc",
+        "spofity"
     ]
 }

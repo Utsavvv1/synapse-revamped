@@ -62,8 +62,8 @@ impl SessionManager {
                 self.last_distraction_app = None;
             }
 
-            // Start a session if not already in one and any work app is running
-            if any_work_app_running && self.current_session.is_none() {
+            // Start a session if not already in one, any work app is running, and foreground app is not blocked
+            if any_work_app_running && self.current_session.is_none() && !is_blocked {
                 println!("\n--- Focus session started ---");
                 let work_apps: Vec<String> = running_processes.iter().filter(|name| self.apprules.is_work_app(name)).cloned().collect();
                 let session = FocusSession {
