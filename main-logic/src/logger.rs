@@ -1,52 +1,36 @@
 use std::fs::{OpenOptions};
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::session::FocusSession;
-use serde_json;
+use crate::db::DbHandle;
 
-pub fn log_event(process: &str, blocked: bool) {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, distraction: Option<bool>, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_secs();
+        .as_secs() as i64;
 
+    // Log to SQLite if available
+    if let Some(db) = db_handle {
+        let _ = db.log_event(
+            timestamp,
+            process,
+            blocked,
+            distraction,
+            session_id,
+            start_time,
+            end_time,
+            duration_secs,
+        );
+    }
+
+    // Fallback: also log to file as before
     let status = if blocked { "BLOCKED" } else { "ALLOWED" };
     let entry = format!("[{}] {} -> {}\n", timestamp, status, process);
-
-    if let Ok(mut file) = OpenOptions::new()
+    if let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open("synapse.log")
     {
         let _ = file.write_all(entry.as_bytes());
-    }
-}
-
-pub fn log_session_event(session: &FocusSession, is_start: bool) {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let event = if is_start { "SESSION_START" } else { "SESSION_END" };
-    let apps = session.work_apps.join(", ");
-    let entry = format!("[{}] {}: apps=[{}]\n", timestamp, event, apps);
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("synapse.log")
-    {
-        let _ = file.write_all(entry.as_bytes());
-    }
-}
-
-pub fn log_session_json(session: &FocusSession) {
-    if let Ok(json) = serde_json::to_string(session) {
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("synapse.log")
-        {
-            let _ = writeln!(file, "SESSION_JSON: {}", json);
-        }
     }
 }
