@@ -3,18 +3,18 @@ mod metrics;
 mod apprules;
 mod platform;
 mod logger;
-// mod db; // Uncomment when db.rs is added
+mod db;
 
 use session::SessionManager;
 use metrics::Metrics;
 use apprules::AppRules;
-// use db::DbHandle; // Uncomment when db.rs is added
+use db::DbHandle;
 
 fn main() {
     let apprules = AppRules::new();
     let mut metrics = Metrics::new();
-    let mut session_mgr = SessionManager::new(apprules.clone());
-    // let mut db_handle = DbHandle::new(); // Uncomment when db.rs is added
+    let db_handle = DbHandle::new().expect("Failed to initialize database");
+    let mut session_mgr = SessionManager::new(apprules.clone(), db_handle);
 
     loop {
         session_mgr.poll();
@@ -22,8 +22,6 @@ fn main() {
         if metrics.should_log_summary() {
             metrics.log_summary();
         }
-        // db_handle.sync_if_needed(); // Uncomment when db.rs is added
-        // Add other feature calls here
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
