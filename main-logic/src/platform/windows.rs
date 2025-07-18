@@ -37,7 +37,8 @@ pub fn get_foreground_process_name() -> Option<String> {
                     let raw_name = entry.szExeFile.as_ptr();
                     let name = CStr::from_ptr(raw_name as *const i8)
                         .to_string_lossy()
-                        .into_owned();
+                        .into_owned()
+                        .to_lowercase();
                     return Some(name);
                 }
 
@@ -66,7 +67,8 @@ pub fn list_running_process_names() -> Vec<String> {
                 let raw_name = entry.szExeFile.as_ptr();
                 let name = CStr::from_ptr(raw_name as *const i8)
                     .to_string_lossy()
-                    .into_owned();
+                    .into_owned()
+                    .to_lowercase();
                 names.push(name);
                 if Process32Next(snapshot, &mut entry).is_err() {
                     break;
@@ -80,7 +82,7 @@ pub fn list_running_process_names() -> Vec<String> {
 pub fn show_distraction_popup(app_name: &str) {
     unsafe {
         let title = CString::new("Distraction Detected!").unwrap();
-        let message = CString::new(format!("You Opened a Blocked App: {}", app_name)).unwrap();
+        let message = CString::new(format!("You opened a blocked app: {}", app_name)).unwrap();
         MessageBoxA(
             None,
             PCSTR(message.as_ptr() as *const u8),
