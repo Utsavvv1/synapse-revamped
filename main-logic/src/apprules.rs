@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use serde::Deserialize;
+use serde_json;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct AppRulesFile {

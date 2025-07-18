@@ -1,10 +1,10 @@
 use crate::apprules::AppRules;
 use crate::platform::{get_foreground_process_name, list_running_process_names, show_distraction_popup};
-use crate::logger::{log_event, log_session_event, log_session_json};
+use crate::logger::log_event;
+use crate::db::DbHandle;
 use std::time::{Duration, SystemTime};
-use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct FocusSession {
     pub start_time: SystemTime,
     pub end_time: Option<SystemTime>,
@@ -19,16 +19,24 @@ pub struct SessionManager {
     last_distraction_app: Option<String>,
     pub last_checked_process: Option<String>,
     pub last_blocked: bool,
+    db_handle: DbHandle,
+    session_id: Option<i64>,
+    last_app: Option<String>,
+    last_app_start: Option<std::time::SystemTime>,
 }
 
 impl SessionManager {
-    pub fn new(apprules: AppRules) -> Self {
+    pub fn new(apprules: AppRules, db_handle: DbHandle) -> Self {
         Self {
             apprules,
             current_session: None,
             last_distraction_app: None,
             last_checked_process: None,
             last_blocked: false,
+            db_handle,
+            session_id: None,
+            last_app: None,
+            last_app_start: None,
         }
     }
 
@@ -39,7 +47,42 @@ impl SessionManager {
         if let Some(proc) = get_foreground_process_name() {
             let is_work = self.apprules.is_work_app(&proc);
             let is_blocked = self.apprules.is_blocked(&proc);
-            log_event(&proc, is_blocked);
+
+            // Track app focus duration
+            let now = std::time::SystemTime::now();
+            if let Some(last_app) = &self.last_app {
+                if last_app != &proc {
+                    if let Some(start_time) = self.last_app_start {
+                        let duration = now.duration_since(start_time).unwrap_or_default().as_secs() as i64;
+                        log_event(
+                            Some(&self.db_handle),
+                            last_app,
+                            false, // is_blocked for previous app not tracked
+                            None,
+                            self.session_id,
+                            Some(start_time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
+                            Some(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
+                            Some(duration),
+                        );
+                    }
+                    self.last_app = Some(proc.clone());
+                    self.last_app_start = Some(now);
+                }
+            } else {
+                self.last_app = Some(proc.clone());
+                self.last_app_start = Some(now);
+            }
+
+            log_event(
+                Some(&self.db_handle),
+                &proc,
+                is_blocked,
+                Some(is_blocked),
+                self.session_id,
+                Some(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
+                None,
+                None,
+            );
             self.last_checked_process = Some(proc.clone());
             self.last_blocked = is_blocked;
 
@@ -67,13 +110,14 @@ impl SessionManager {
                 println!("\n--- Focus session started ---");
                 let work_apps: Vec<String> = running_processes.iter().filter(|name| self.apprules.is_work_app(name)).cloned().collect();
                 let session = FocusSession {
-                    start_time: SystemTime::now(),
+                    start_time: now,
                     end_time: None,
-                    work_apps,
+                    work_apps: work_apps.clone(),
                     is_active: true,
                     distraction_attempts: 0,
                 };
-                log_session_event(&session, true);
+                let session_id = self.db_handle.insert_session(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64).ok();
+                self.session_id = session_id;
                 self.current_session = Some(session);
             }
             // If already in a session, update work_apps if new work app appears
@@ -88,6 +132,8 @@ impl SessionManager {
             println!("Could not detect foreground app.");
             self.last_checked_process = None;
             self.last_blocked = false;
+            self.last_app = None;
+            self.last_app_start = None;
             self.last_distraction_app = None;
         }
 
@@ -95,12 +141,17 @@ impl SessionManager {
         if let Some(session) = self.current_session.as_mut() {
             if !any_work_app_running {
                 session.is_active = false;
-                session.end_time = Some(SystemTime::now());
+                session.end_time = Some(std::time::SystemTime::now());
                 println!("\n--- Focus session ended ---");
                 println!("Apps used: {:?}", session.work_apps);
-                log_session_event(session, false);
-                log_session_json(session);
+                if let Some(session_id) = self.session_id {
+                    let end_time = session.end_time.unwrap().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+                    let work_apps_str = session.work_apps.join(",");
+                    let distraction_attempts = session.distraction_attempts as i32;
+                    let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
+                }
                 self.current_session = None;
+                self.session_id = None;
             }
         }
     }
