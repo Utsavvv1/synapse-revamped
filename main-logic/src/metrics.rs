@@ -24,11 +24,13 @@ impl Metrics {
         if is_blocked {
             self.blocked_count += 1;
         }
-
         *self.app_frequency.entry(process.to_string()).or_insert(0) += 1;
     }
 
     pub fn update_from_session(&mut self, session_mgr: &SessionManager) {
+        if let Some(proc) = &session_mgr.last_checked_process {
+            self.update(proc, session_mgr.last_blocked);
+        }
         if let Some(session) = &session_mgr.current_session {
             for app in &session.work_apps {
                 *self.app_frequency.entry(app.clone()).or_insert(0) += 1;
