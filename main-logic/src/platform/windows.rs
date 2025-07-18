@@ -1,10 +1,11 @@
 use windows::{
+    core::PCSTR,
     Win32::Foundation::*,
     Win32::System::Diagnostics::ToolHelp::*,
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 pub fn get_foreground_process_name() -> Option<String> {
     unsafe {
@@ -74,4 +75,17 @@ pub fn list_running_process_names() -> Vec<String> {
         }
     }
     names
+}
+
+pub fn show_distraction_popup(app_name: &str) {
+    unsafe {
+        let title = CString::new("Distraction Detected!").unwrap();
+        let message = CString::new(format!("You Opened a Blocked App: {}", app_name)).unwrap();
+        MessageBoxA(
+            None,
+            PCSTR(message.as_ptr() as *const u8),
+            PCSTR(title.as_ptr() as *const u8),
+            MB_OK | MB_ICONWARNING | MB_TOPMOST,
+        );
+    }
 }

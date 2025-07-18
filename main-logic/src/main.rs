@@ -6,7 +6,7 @@ mod session;
 
 use std::{thread, time::Duration};
 use apprules::AppRules;
-use platform::{get_foreground_process_name, list_running_process_names};
+use platform::{get_foreground_process_name, list_running_process_names, show_distraction_popup};
 use logger::log_event;
 use metrics::Metrics;
 use session::FocusSession;
@@ -28,7 +28,8 @@ fn main() {
             if is_blocked {
                 println!("    Blocked app in focus: {}", proc);
                 if current_session.is_some() {
-                    println!("    DISTRACTION DETECTED! (popup placeholder)");
+                    println!("    (DEBUG: About to show popup for {})", proc);
+                    show_distraction_popup(&proc);
                 }
             } else if is_work {
                 println!("    Work app in focus: {}", proc);
