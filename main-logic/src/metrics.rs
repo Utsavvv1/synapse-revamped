@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::time::{Instant};
+use crate::session::SessionManager;
 
 pub struct Metrics {
     pub total_checks: u64,
@@ -25,6 +26,14 @@ impl Metrics {
         }
 
         *self.app_frequency.entry(process.to_string()).or_insert(0) += 1;
+    }
+
+    pub fn update_from_session(&mut self, session_mgr: &SessionManager) {
+        if let Some(session) = &session_mgr.current_session {
+            for app in &session.work_apps {
+                *self.app_frequency.entry(app.clone()).or_insert(0) += 1;
+            }
+        }
     }
 
     pub fn should_log_summary(&self) -> bool {

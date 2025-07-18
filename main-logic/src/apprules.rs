@@ -2,12 +2,13 @@ use std::fs;
 use std::path::Path;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AppRulesFile {
     pub whitelist: Vec<String>,
     pub blacklist: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct AppRules {
     whitelist: Vec<String>,
     blacklist: Vec<String>,
@@ -16,21 +17,18 @@ pub struct AppRules {
 impl AppRules {
     pub fn new() -> Self {
         let path = Path::new("apprules.json");
-
         if path.exists() {
             let contents = fs::read_to_string(path)
                 .expect("Failed to read apprules.json");
-
             let parsed: AppRulesFile = serde_json::from_str(&contents)
                 .expect("apprules.json has invalid format");
-
             AppRules {
                 whitelist: parsed.whitelist.into_iter().map(|s| s.to_lowercase()).collect(),
                 blacklist: parsed.blacklist.into_iter().map(|s| s.to_lowercase()).collect(),
             }
         } else {
             println!("    apprules.json not found - using default rules.");
-            let whitelist = vec!["code.exe", "notepad.exe", "cursor.exe", "windowsTerminal.exe"];
+            let whitelist = vec!["code.exe", "notepad.exe", "cursor.exe", "windowsterminal.exe"];
             let blacklist = vec!["chrome.exe", "discord.exe", "vlc.exe", "spotify.exe"];
             AppRules {
                 whitelist: whitelist.into_iter().map(|s| s.to_lowercase()).collect(),
@@ -50,7 +48,6 @@ impl AppRules {
     pub fn list_whitelist(&self) -> &[String] {
         &self.whitelist
     }
-
     pub fn list_blacklist(&self) -> &[String] {
         &self.blacklist
     }
