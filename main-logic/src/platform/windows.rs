@@ -1,62 +1,53 @@
 use windows::{
     core::PCSTR,
-    Win32::Foundation::*,
     Win32::System::Diagnostics::ToolHelp::*,
     Win32::UI::WindowsAndMessaging::*,
 };
 
 use std::ffi::{CStr, CString};
+use crate::error::SynapseError;
 
-pub fn get_foreground_process_name() -> Option<String> {
+pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
     unsafe {
-        // get foreground window handle
         let hwnd = GetForegroundWindow();
         if hwnd.0 == 0 {
-            return None;
+            return Ok(None);
         }
-
-        // get PID from window handle
         let mut pid = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
         if pid == 0 {
-            return None;
+            return Ok(None);
         }
-
-        // create snapshot of all processes
-        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?;
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).map_err(|e| SynapseError::Platform(format!("Snapshot failed: {:?}", e)))?;
         let mut entry = PROCESSENTRY32 {
             dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
             ..Default::default()
         };
-
-        // iterate all processes
         if Process32First(snapshot, &mut entry).is_ok() {
             loop {
                 if entry.th32ProcessID == pid {
-                    // szExeFile is a null-terminated C string
                     let raw_name = entry.szExeFile.as_ptr();
                     let name = CStr::from_ptr(raw_name as *const i8)
                         .to_string_lossy()
                         .into_owned()
                         .to_lowercase();
-                    return Some(name);
+                    return Ok(Some(name));
                 }
-
                 if Process32Next(snapshot, &mut entry).is_err() {
                     break;
                 }
             }
         }
     }
-    None
+    Ok(None)
 }
 
-pub fn list_running_process_names() -> Vec<String> {
+pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     let mut names = Vec::new();
     unsafe {
         let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
             Ok(s) => s,
-            Err(_) => return names,
+            Err(e) => return Err(SynapseError::Platform(format!("Snapshot failed: {:?}", e))),
         };
         let mut entry = PROCESSENTRY32 {
             dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
@@ -76,13 +67,13 @@ pub fn list_running_process_names() -> Vec<String> {
             }
         }
     }
-    names
+    Ok(names)
 }
 
-pub fn show_distraction_popup(app_name: &str) {
+pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     unsafe {
-        let title = CString::new("Distraction Detected!").unwrap();
-        let message = CString::new(format!("You opened a blocked app: {}", app_name)).unwrap();
+        let title = CString::new("Distraction Detected!").map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
+        let message = CString::new(format!("You opened a blocked app: {}", app_name)).map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
         MessageBoxA(
             None,
             PCSTR(message.as_ptr() as *const u8),
@@ -90,4 +81,5 @@ pub fn show_distraction_popup(app_name: &str) {
             MB_OK | MB_ICONWARNING | MB_TOPMOST,
         );
     }
+    Ok(())
 }
