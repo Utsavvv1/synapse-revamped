@@ -1,3 +1,4 @@
+mod error;
 mod session;
 mod metrics;
 mod apprules;
