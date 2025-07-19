@@ -11,13 +11,26 @@ use session::SessionManager;
 use metrics::Metrics;
 use apprules::AppRules;
 use db::DbHandle;
+use logger::log_error;
 
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 
 fn main() {
-    let apprules = AppRules::new();
+    let apprules = match AppRules::new() {
+        Ok(rules) => rules,
+        Err(e) => {
+            log_error(&e);
+            return;
+        }
+    };
     let mut metrics = Metrics::new();
-    let db_handle = DbHandle::new().expect("Failed to initialize database");
+    let db_handle = match DbHandle::new() {
+        Ok(db) => db,
+        Err(e) => {
+            log_error(&e);
+            return;
+        }
+    };
     let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle)));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
@@ -25,14 +38,20 @@ fn main() {
 
     while !shutdown_flag.load(Ordering::SeqCst) {
         let mut mgr = session_mgr.lock().unwrap();
-        mgr.poll();
+        if let Err(e) = mgr.poll() {
+            log_error(&e);
+        }
         metrics.update_from_session(&mgr);
         if metrics.should_log_summary() {
-            metrics.log_summary();
+            if let Err(e) = metrics.log_summary() {
+                log_error(&e);
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     // After loop: ensure session is ended and logged
     let mut mgr = session_mgr.lock().unwrap();
-    mgr.end_active_session();
+    if let Err(e) = mgr.end_active_session() {
+        log_error(&e);
+    }
 }
