@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::{Instant};
 use crate::session::SessionManager;
+use crate::error::SynapseError;
 
 pub struct Metrics {
     pub total_checks: u64,
@@ -42,7 +43,7 @@ impl Metrics {
         self.last_summary.elapsed().as_secs() >= 60
     }
 
-    pub fn log_summary(&mut self) {
+    pub fn log_summary(&mut self) -> Result<(), SynapseError> {
         println!("\n----- Focus Summary -----");
         println!("Total Checks: {}", self.total_checks);
         println!("Blocked Detections: {}", self.blocked_count);
@@ -59,5 +60,6 @@ impl Metrics {
 
         // reset timer
         self.last_summary = Instant::now();
+        Ok(())
     }
 }
