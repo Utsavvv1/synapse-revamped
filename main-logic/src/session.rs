@@ -2,8 +2,10 @@ use crate::apprules::AppRules;
 use crate::platform::{get_foreground_process_name, list_running_process_names, show_distraction_popup};
 use crate::logger::log_event;
 use crate::db::DbHandle;
-use std::time::{Duration, SystemTime};
+use crate::error::SynapseError;
+use std::time::SystemTime;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct FocusSession {
     pub start_time: SystemTime,
@@ -40,11 +42,11 @@ impl SessionManager {
         }
     }
 
-    pub fn poll(&mut self) {
-        let running_processes = list_running_process_names();
+    pub fn poll(&mut self) -> Result<(), SynapseError> {
+        let running_processes = list_running_process_names()?;
         let any_work_app_running = running_processes.iter().any(|name| self.apprules.is_work_app(name));
 
-        if let Some(proc) = get_foreground_process_name() {
+        if let Some(proc) = get_foreground_process_name()? {
             let is_work = self.apprules.is_work_app(&proc);
             let is_blocked = self.apprules.is_blocked(&proc);
 
@@ -53,17 +55,17 @@ impl SessionManager {
             if let Some(last_app) = &self.last_app {
                 if last_app != &proc {
                     if let Some(start_time) = self.last_app_start {
-                        let duration = now.duration_since(start_time).unwrap_or_default().as_secs() as i64;
+                        let duration = now.duration_since(start_time)?.as_secs() as i64;
                         log_event(
                             Some(&self.db_handle),
                             last_app,
                             false, // is_blocked for previous app not tracked
                             None,
                             self.session_id,
-                            Some(start_time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
-                            Some(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
+                            Some(start_time.duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64),
+                            Some(now.duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64),
                             Some(duration),
-                        );
+                        )?;
                     }
                     self.last_app = Some(proc.clone());
                     self.last_app_start = Some(now);
@@ -79,10 +81,10 @@ impl SessionManager {
                 is_blocked,
                 Some(is_blocked),
                 self.session_id,
-                Some(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64),
+                Some(now.duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64),
                 None,
                 None,
-            );
+            )?;
             self.last_checked_process = Some(proc.clone());
             self.last_blocked = is_blocked;
 
@@ -93,7 +95,9 @@ impl SessionManager {
                 }
                 if self.current_session.is_some() {
                     if self.last_distraction_app.as_deref() != Some(&proc) {
-                        show_distraction_popup(&proc);
+                        if let Err(e) = show_distraction_popup(&proc) {
+                            crate::logger::log_error(&e);
+                        }
                         self.last_distraction_app = Some(proc.clone());
                     }
                 }
@@ -116,7 +120,7 @@ impl SessionManager {
                     is_active: true,
                     distraction_attempts: 0,
                 };
-                let session_id = self.db_handle.insert_session(now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64).ok();
+                let session_id = self.db_handle.insert_session(now.duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64).ok();
                 self.session_id = session_id;
                 self.current_session = Some(session);
             }
@@ -145,7 +149,7 @@ impl SessionManager {
                 println!("\n--- Focus session ended ---");
                 println!("Apps used: {:?}", session.work_apps);
                 if let Some(session_id) = self.session_id {
-                    let end_time = session.end_time.unwrap().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+                    let end_time = session.end_time.unwrap().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64;
                     let work_apps_str = session.work_apps.join(",");
                     let distraction_attempts = session.distraction_attempts as i32;
                     let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
@@ -154,16 +158,17 @@ impl SessionManager {
                 self.session_id = None;
             }
         }
+        Ok(())
     }
 
-    pub fn end_active_session(&mut self) {
+    pub fn end_active_session(&mut self) -> Result<(), SynapseError> {
         if let Some(session) = self.current_session.as_mut() {
             session.is_active = false;
             session.end_time = Some(SystemTime::now());
             println!("\n--- Focus session ended (graceful shutdown) ---");
             println!("Apps used: {:?}", session.work_apps);
             if let Some(session_id) = self.session_id {
-                let end_time = session.end_time.unwrap().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+                let end_time = session.end_time.unwrap().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
                 let work_apps_str = session.work_apps.join(",");
                 let distraction_attempts = session.distraction_attempts as i32;
                 let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
@@ -171,5 +176,6 @@ impl SessionManager {
             self.current_session = None;
             self.session_id = None;
         }
+        Ok(())
     }
 }
