@@ -155,4 +155,21 @@ impl SessionManager {
             }
         }
     }
+
+    pub fn end_active_session(&mut self) {
+        if let Some(session) = self.current_session.as_mut() {
+            session.is_active = false;
+            session.end_time = Some(SystemTime::now());
+            println!("\n--- Focus session ended (graceful shutdown) ---");
+            println!("Apps used: {:?}", session.work_apps);
+            if let Some(session_id) = self.session_id {
+                let end_time = session.end_time.unwrap().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+                let work_apps_str = session.work_apps.join(",");
+                let distraction_attempts = session.distraction_attempts as i32;
+                let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
+            }
+            self.current_session = None;
+            self.session_id = None;
+        }
+    }
 }
