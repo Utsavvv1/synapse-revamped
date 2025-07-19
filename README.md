@@ -1,51 +1,32 @@
-# synapse-revamped
+# Synapse Revamped
+
+## Folder Structure
+
+```
+synapse-revamped/
+│
+├── main-logic/
+│   ├── src/
+│   │   ├── apprules.rs        # Loads and manages app whitelist/blacklist rules
+│   │   ├── logger.rs          # Handles logging of events to file and database
+│   │   ├── main.rs            # Main entry point, runs the event loop
+│   │   ├── metrics.rs         # Tracks and summarizes app usage metrics
+│   │   ├── platform/
+│   │   │   ├── linux.rs       # Platform-specific logic for Linux
+│   │   │   ├── mod.rs         # Platform abstraction
+│   │   │   └── windows.rs     # Platform-specific logic for Windows
+│   │   ├── session.rs         # Manages focus sessions and app polling
+│   │   └── db.rs              # Handles all SQLite database operations
+│   ├── apprules.json          # JSON file for custom whitelist/blacklist rules
+│   ├── synapse_metrics.db     # SQLite database for app usage and session logs
+│   ├── synapse.log            # Plaintext log of app events
+│   ├── Cargo.toml             # Rust dependencies and project metadata
+│   └── Cargo.lock             # Cargo dependency lockfile
+│
+├── target/                    # Build artifacts (auto-generated)
+└── README.md                  # Project overview and structure (this file)
+```
 
 ---
 
-## 🧱 Tech Stack Overview
-
-### 🖥 Frontend
-
-* **Desktop UI**: [Tauri](https://tauri.app/) + Svelte *(or React)* — modern, lightweight UI for prompts, logs, and settings
-* **Mobile App**: Flutter — displays real-time popups based on desktop focus state
-* **Realtime Sync**: Supabase Realtime — syncs focus events from desktop to mobile
-
-### ⚙️ Backend
-
-* **Core Engine**: Rust — detects active apps, enforces blacklists, logs events
-* **Process Monitoring**: `sysinfo`, `windows` crate — foreground app detection
-* **Cloud Sync**: Supabase (PostgreSQL + REST + Realtime) — stores logs, justifications, and state
-* **Local Storage**: `rusqlite` or JSON — offline caching of events and config
-
----
-
-
-the barebones desktop version does this:
-
-Desktop Flow:
-1 Monitor foreground window
-
-2 If blacklisted app is active → show popup prompt
-
-3 Log app + justification + timestamp
-
-4 Send to Supabase via REST
-
-focus-monitor/
-├── src/
-│   ├── main.rs                  # Entry point
-│   ├── monitor.rs               # Foreground app detection
-│   ├── popup.rs                 # Justification prompt
-│   └── sync.rs                  # Send to Supabase
-├── .env                         # Supabase URL & key
-├── Cargo.toml
-├── README.md
-
-| File / Folder | Purpose                                      |
-| ------------- | -------------------------------------------- |
-| `main.rs`     | Loop + glue logic between modules            |
-| `monitor.rs`  | Get foreground app/process name              |
-| `popup.rs`    | Show prompt and get user input               |
-| `sync.rs`     | Struct + function to POST to Supabase        |
-| `.env`        | Store your `SUPABASE_URL` and `SUPABASE_KEY` |
-| `README.md`   | Setup + dev guide for team                   |
+**For more details, see comments in each source file.**
