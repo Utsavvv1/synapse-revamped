@@ -15,7 +15,8 @@ impl DbHandle {
     /// # Errors
     /// Returns `SynapseError` if the database cannot be opened or tables cannot be created.
     pub fn new() -> Result<Self, SynapseError> {
-        let conn = Connection::open("synapse_metrics.db")?;
+        let conn = Connection::open("synapse_metrics.db")
+            .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS app_usage_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +30,7 @@ impl DbHandle {
                 duration_secs INTEGER
             )",
             [],
-        )?;
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS focus_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +40,7 @@ impl DbHandle {
                 distraction_attempts INTEGER
             )",
             [],
-        )?;
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(DbHandle { conn })
     }
 
@@ -69,7 +70,7 @@ impl DbHandle {
         self.conn.execute(
             "INSERT INTO app_usage_events (timestamp, process_name, is_blocked, distraction, session_id, start_time, end_time, duration_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![timestamp, process_name, is_blocked, distraction, session_id, start_time, end_time, duration_secs],
-        )?;
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
     }
 
@@ -84,7 +85,7 @@ impl DbHandle {
         self.conn.execute(
             "INSERT INTO focus_sessions (start_time, distraction_attempts) VALUES (?1, 0)",
             params![start_time],
-        )?;
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(self.conn.last_insert_rowid())
     }
 
@@ -102,7 +103,7 @@ impl DbHandle {
         self.conn.execute(
             "UPDATE focus_sessions SET end_time = ?1, work_apps = ?2, distraction_attempts = ?3 WHERE id = ?4",
             params![end_time, work_apps, distraction_attempts, session_id],
-        )?;
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
     }
 }

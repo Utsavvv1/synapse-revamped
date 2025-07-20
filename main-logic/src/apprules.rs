@@ -32,8 +32,10 @@ impl AppRules {
     pub fn new() -> Result<Self, SynapseError> {
         let path = Path::new("apprules.json");
         if path.exists() {
-            let contents = fs::read_to_string(path)?;
-            let parsed: AppRulesFile = serde_json::from_str(&contents)?;
+            let contents = fs::read_to_string(path)
+                .map_err(|e| SynapseError::Config(format!("Failed to read apprules.json: {}", e)))?;
+            let parsed: AppRulesFile = serde_json::from_str(&contents)
+                .map_err(|e| SynapseError::Config(format!("Failed to parse apprules.json: {}", e)))?;
             Ok(AppRules {
                 whitelist: Self::expand_names(parsed.whitelist),
                 blacklist: Self::expand_names(parsed.blacklist),

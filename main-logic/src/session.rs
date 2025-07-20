@@ -65,10 +65,12 @@ impl SessionManager {
     /// # Errors
     /// Returns `SynapseError` if any platform or logging operation fails.
     pub fn poll(&mut self) -> Result<(), SynapseError> {
-        let running_processes = list_running_process_names()?;
+        let running_processes = list_running_process_names()
+            .map_err(|e| SynapseError::Platform(format!("Failed to list running processes: {}", e)))?;
         let any_work_app_running = running_processes.iter().any(|name| self.apprules.is_work_app(name));
 
-        if let Some(proc) = get_foreground_process_name()? {
+        if let Some(proc) = get_foreground_process_name()
+            .map_err(|e| SynapseError::Platform(format!("Failed to get foreground process: {}", e)))? {
             let is_work = self.apprules.is_work_app(&proc);
             let is_blocked = self.apprules.is_blocked(&proc);
 
@@ -117,7 +119,9 @@ impl SessionManager {
                 }
                 if self.current_session.is_some() {
                     if self.last_distraction_app.as_deref() != Some(&proc) {
-                        if let Err(e) = show_distraction_popup(&proc) {
+                        if let Err(e) = show_distraction_popup(&proc)
+                            .map_err(|e| SynapseError::Platform(format!("Failed to show distraction popup: {}", e)))
+                        {
                             crate::logger::log_error(&e);
                         }
                         self.last_distraction_app = Some(proc.clone());
@@ -174,7 +178,8 @@ impl SessionManager {
                     let end_time = session.end_time.unwrap().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64;
                     let work_apps_str = session.work_apps.join(",");
                     let distraction_attempts = session.distraction_attempts as i32;
-                    let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
+                    let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts)
+                        .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))));
                 }
                 self.current_session = None;
                 self.session_id = None;
@@ -197,7 +202,8 @@ impl SessionManager {
                 let end_time = session.end_time.unwrap().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
                 let work_apps_str = session.work_apps.join(",");
                 let distraction_attempts = session.distraction_attempts as i32;
-                let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts);
+                let _ = self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts)
+                    .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))));
             }
             self.current_session = None;
             self.session_id = None;

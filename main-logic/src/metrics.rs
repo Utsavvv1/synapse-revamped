@@ -82,7 +82,7 @@ impl Metrics {
 
         // reset timer
         self.last_summary = Instant::now();
-        Ok(())
+        Ok(()) // If future logging is added, wrap errors with context here
     }
 }
 

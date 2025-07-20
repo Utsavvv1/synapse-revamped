@@ -24,7 +24,8 @@ pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
         if pid == 0 {
             return Ok(None);
         }
-        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).map_err(|e| SynapseError::Platform(format!("Snapshot failed: {:?}", e)))?;
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            .map_err(|e| SynapseError::Platform(format!("Snapshot failed: {:?}", e)))?;
         let mut entry = PROCESSENTRY32 {
             dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
             ..Default::default()
@@ -55,10 +56,8 @@ pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
 pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     let mut names = Vec::new();
     unsafe {
-        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(s) => s,
-            Err(e) => return Err(SynapseError::Platform(format!("Snapshot failed: {:?}", e))),
-        };
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            .map_err(|e| SynapseError::Platform(format!("Snapshot failed: {:?}", e)))?;
         let mut entry = PROCESSENTRY32 {
             dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
             ..Default::default()
@@ -89,8 +88,10 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
 /// Returns `SynapseError` if the popup cannot be shown.
 pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     unsafe {
-        let title = CString::new("Distraction Detected!").map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
-        let message = CString::new(format!("You opened a blocked app: {}", app_name)).map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
+        let title = CString::new("Distraction Detected!")
+            .map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
+        let message = CString::new(format!("You opened a blocked app: {}", app_name))
+            .map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;
         MessageBoxA(
             None,
             PCSTR(message.as_ptr() as *const u8),
