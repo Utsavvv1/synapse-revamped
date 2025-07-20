@@ -1,3 +1,5 @@
+//! Session module: manages focus sessions, tracks app usage, and handles session state transitions.
+
 use crate::apprules::AppRules;
 use crate::platform::{get_foreground_process_name, list_running_process_names, show_distraction_popup};
 use crate::logger::log_event;
@@ -5,29 +7,45 @@ use crate::db::DbHandle;
 use crate::error::SynapseError;
 use std::time::SystemTime;
 
-#[allow(dead_code)]
+/// Represents a single focus session, including timing, apps used, and distraction attempts.
 #[derive(Debug, Clone)]
 pub struct FocusSession {
+    /// Session start time.
     pub start_time: SystemTime,
+    /// Session end time (if ended).
     pub end_time: Option<SystemTime>,
+    /// List of work apps used during the session.
     pub work_apps: Vec<String>,
+    /// Whether the session is currently active.
     pub is_active: bool,
+    /// Number of distraction attempts during the session.
     pub distraction_attempts: u32,
 }
 
+/// Manages the current focus session, tracks app usage, and interacts with the database.
 pub struct SessionManager {
-    apprules: AppRules,
+    /// Application rules for whitelisting/blacklisting.
+    pub apprules: AppRules,
+    /// The current focus session, if any.
     pub current_session: Option<FocusSession>,
-    last_distraction_app: Option<String>,
+    /// The last distraction app detected.
+    pub last_distraction_app: Option<String>,
+    /// The last checked process name.
     pub last_checked_process: Option<String>,
+    /// Whether the last checked process was blocked.
     pub last_blocked: bool,
+    /// Database handle for session/event logging.
     pub db_handle: DbHandle,
+    /// The current session's database ID, if any.
     pub session_id: Option<i64>,
-    last_app: Option<String>,
-    last_app_start: Option<std::time::SystemTime>,
+    /// The last app in focus.
+    pub last_app: Option<String>,
+    /// The start time of the last app in focus.
+    pub last_app_start: Option<std::time::SystemTime>,
 }
 
 impl SessionManager {
+    /// Creates a new session manager with the given rules and database handle.
     pub fn new(apprules: AppRules, db_handle: DbHandle) -> Self {
         Self {
             apprules,
@@ -42,6 +60,10 @@ impl SessionManager {
         }
     }
 
+    /// Polls the current foreground app, updates session state, logs events, and handles distractions.
+    ///
+    /// # Errors
+    /// Returns `SynapseError` if any platform or logging operation fails.
     pub fn poll(&mut self) -> Result<(), SynapseError> {
         let running_processes = list_running_process_names()?;
         let any_work_app_running = running_processes.iter().any(|name| self.apprules.is_work_app(name));
@@ -161,6 +183,10 @@ impl SessionManager {
         Ok(())
     }
 
+    /// Ends the current active session, if any, and updates the database.
+    ///
+    /// # Errors
+    /// Returns `SynapseError` if updating the session fails.
     pub fn end_active_session(&mut self) -> Result<(), SynapseError> {
         if let Some(session) = self.current_session.as_mut() {
             session.is_active = false;

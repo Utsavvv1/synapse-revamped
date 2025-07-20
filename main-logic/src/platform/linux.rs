@@ -1,7 +1,13 @@
+//! Linux platform module: provides process and popup utilities for Linux OS.
+
 use std::process::Command;
 use std::fs;
 use crate::error::SynapseError;
 
+/// Gets the name of the foreground process on Linux.
+///
+/// # Errors
+/// Returns `SynapseError` if the process name cannot be determined.
 pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
     // Try to get the active window's PID using xprop and xdotool
     let window_id = Command::new("xprop")
@@ -34,6 +40,10 @@ pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
     Ok(Some(name))
 }
 
+/// Lists all running process names on Linux.
+///
+/// # Errors
+/// Returns `SynapseError` if the process list cannot be retrieved.
 pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     let mut names = Vec::new();
     for entry in fs::read_dir("/proc")? {
@@ -50,6 +60,13 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     Ok(names)
 }
 
+/// Shows a popup warning for a distraction app on Linux.
+///
+/// # Arguments
+/// * `app_name` - Name of the blocked app
+///
+/// # Errors
+/// Returns `SynapseError` if the popup cannot be shown.
 pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     let result = Command::new("notify-send")
         .arg("Distraction Detected!")

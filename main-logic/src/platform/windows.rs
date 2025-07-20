@@ -1,3 +1,5 @@
+//! Windows platform module: provides process and popup utilities for Windows OS.
+
 use windows::{
     core::PCSTR,
     Win32::System::Diagnostics::ToolHelp::*,
@@ -7,6 +9,10 @@ use windows::{
 use std::ffi::{CStr, CString};
 use crate::error::SynapseError;
 
+/// Gets the name of the foreground process on Windows.
+///
+/// # Errors
+/// Returns `SynapseError` if the process name cannot be determined.
 pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -42,6 +48,10 @@ pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
     Ok(None)
 }
 
+/// Lists all running process names on Windows.
+///
+/// # Errors
+/// Returns `SynapseError` if the process list cannot be retrieved.
 pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     let mut names = Vec::new();
     unsafe {
@@ -70,6 +80,13 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
     Ok(names)
 }
 
+/// Shows a popup warning for a distraction app on Windows.
+///
+/// # Arguments
+/// * `app_name` - Name of the blocked app
+///
+/// # Errors
+/// Returns `SynapseError` if the popup cannot be shown.
 pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     unsafe {
         let title = CString::new("Distraction Detected!").map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;

@@ -1,22 +1,34 @@
+//! Application rules module: handles loading, parsing, and checking whitelist/blacklist rules for process names.
+
 use std::fs;
 use std::path::Path;
 use serde::Deserialize;
 use serde_json;
 use crate::error::SynapseError;
 
+/// Structure for deserializing the application rules JSON file.
 #[derive(Debug, Deserialize, Clone)]
 pub struct AppRulesFile {
+    /// List of whitelisted process names.
     pub whitelist: Vec<String>,
+    /// List of blacklisted process names.
     pub blacklist: Vec<String>,
 }
 
+/// Application rules for process whitelisting and blacklisting.
 #[derive(Clone)]
 pub struct AppRules {
-    whitelist: Vec<String>,
-    blacklist: Vec<String>,
+    /// Whitelisted process names (expanded for platform).
+    pub whitelist: Vec<String>,
+    /// Blacklisted process names (expanded for platform).
+    pub blacklist: Vec<String>,
 }
 
 impl AppRules {
+    /// Loads application rules from `apprules.json` if present, or uses empty rules otherwise.
+    ///
+    /// # Errors
+    /// Returns `SynapseError` if the file cannot be read or parsed.
     pub fn new() -> Result<Self, SynapseError> {
         let path = Path::new("apprules.json");
         if path.exists() {
@@ -45,6 +57,7 @@ impl AppRules {
         }
     }
 
+    /// Expands process names for platform-specific matching (e.g., adds `.exe` on Windows).
     fn expand_names(names: Vec<String>) -> Vec<String> {
         let mut expanded = Vec::new();
         for name in names {
@@ -60,10 +73,12 @@ impl AppRules {
         expanded
     }
 
+    /// Checks if a process name is in the whitelist.
     pub fn is_work_app(&self, process_name: &str) -> bool {
         self.whitelist.iter().any(|name| name.eq_ignore_ascii_case(process_name))
     }
 
+    /// Checks if a process name is in the blacklist.
     pub fn is_blocked(&self, process_name: &str) -> bool {
         self.blacklist.iter().any(|name| name.eq_ignore_ascii_case(process_name))
     }

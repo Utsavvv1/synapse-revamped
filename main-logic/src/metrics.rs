@@ -1,16 +1,24 @@
+//! Metrics module: tracks and summarizes app usage, blocked events, and session statistics.
+
 use std::collections::HashMap;
 use std::time::{Instant};
 use crate::session::SessionManager;
 use crate::error::SynapseError;
 
+/// Tracks metrics for app usage and focus sessions.
 pub struct Metrics {
+    /// Total number of app checks performed.
     pub total_checks: u64,
+    /// Number of times a blocked app was detected.
     pub blocked_count: u64,
+    /// Frequency of each app seen.
     pub app_frequency: HashMap<String, u64>,
+    /// Time of the last summary log.
     pub last_summary: Instant,
 }
 
 impl Metrics {
+    /// Creates a new, empty metrics tracker.
     pub fn new() -> Self {
         Self {
             total_checks: 0,
@@ -20,6 +28,11 @@ impl Metrics {
         }
     }
 
+    /// Updates metrics for a single app check.
+    ///
+    /// # Arguments
+    /// * `process` - Name of the process checked
+    /// * `is_blocked` - Whether the process was blocked
     pub fn update(&mut self, process: &str, is_blocked: bool) {
         self.total_checks += 1;
         if is_blocked {
@@ -28,6 +41,10 @@ impl Metrics {
         *self.app_frequency.entry(process.to_string()).or_insert(0) += 1;
     }
 
+    /// Updates metrics from the current session manager state.
+    ///
+    /// # Arguments
+    /// * `session_mgr` - Reference to the session manager
     pub fn update_from_session(&mut self, session_mgr: &SessionManager) {
         if let Some(proc) = &session_mgr.last_checked_process {
             self.update(proc, session_mgr.last_blocked);
@@ -39,10 +56,15 @@ impl Metrics {
         }
     }
 
+    /// Returns true if it is time to log a summary (every 60 seconds).
     pub fn should_log_summary(&self) -> bool {
         self.last_summary.elapsed().as_secs() >= 60
     }
 
+    /// Logs a summary of metrics to stdout and resets the timer.
+    ///
+    /// # Errors
+    /// Returns `SynapseError` if logging fails (should not happen for stdout).
     pub fn log_summary(&mut self) -> Result<(), SynapseError> {
         println!("\n----- Focus Summary -----");
         println!("Total Checks: {}", self.total_checks);

@@ -1,7 +1,21 @@
+//! Logger module: handles logging of events and errors to file and database.
+
 use std::io::Write;
 use crate::db::DbHandle;
 use crate::error::SynapseError;
 
+/// Logs an app usage event to the database (if available) and to the fallback log file.
+///
+/// # Arguments
+/// * `db_handle` - Optional database handle
+/// * `process` - Name of the process
+/// * `blocked` - Whether the process was blocked
+/// * `distraction` - Whether this was a distraction attempt
+/// * `session_id` - Associated session ID
+/// * `start_time`, `end_time`, `duration_secs` - Timing info
+///
+/// # Errors
+/// Returns `SynapseError` if logging to the database or file fails.
 pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, distraction: Option<bool>, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
@@ -32,6 +46,10 @@ pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, dis
     Ok(())
 }
 
+/// Logs an error to the fallback log file and stderr.
+///
+/// # Arguments
+/// * `err` - The error to log
 pub fn log_error(err: &SynapseError) {
     let entry = format!("[ERROR] {}\n", err);
     if let Ok(mut file) = std::fs::OpenOptions::new()
