@@ -47,7 +47,7 @@ fn main() {
                 log_error(&e);
             }
         }
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(1000));
     }
     // After loop: ensure session is ended and logged
     let mut mgr = session_mgr.lock().unwrap();

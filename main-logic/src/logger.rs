@@ -43,3 +43,18 @@ pub fn log_error(err: &SynapseError) {
     }
     eprintln!("{}", entry);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn log_error_writes_to_file() {
+        let msg = "Test error message";
+        let err = crate::error::SynapseError::Other(msg.to_string());
+        log_error(&err);
+        let contents = fs::read_to_string("synapse.log").unwrap();
+        assert!(contents.contains(msg));
+    }
+}

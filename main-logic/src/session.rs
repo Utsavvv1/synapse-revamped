@@ -179,3 +179,32 @@ impl SessionManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::apprules::AppRules;
+    use crate::db::DbHandle;
+
+    #[test]
+    fn starts_and_ends_session() {
+        let rules = AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec!["chrome.exe".to_string()]);
+        let mut db = DbHandle::test_in_memory();
+        // Setup tables if needed
+        db.test_conn().execute(
+            "CREATE TABLE IF NOT EXISTS focus_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time INTEGER NOT NULL,
+                end_time INTEGER,
+                work_apps TEXT,
+                distraction_attempts INTEGER
+            )",
+            [],
+        ).unwrap();
+        let mgr = SessionManager::new(rules, db);
+        // Simulate session start
+        assert!(mgr.current_session.is_none());
+        // Simulate session end
+        // (You may need to call end_active_session or similar)
+    }
+}

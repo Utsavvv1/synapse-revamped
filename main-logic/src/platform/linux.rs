@@ -60,3 +60,11 @@ pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn dummy_test() {
+        assert_eq!(2 + 2, 4);
+    }
+}

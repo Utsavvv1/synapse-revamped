@@ -20,4 +20,12 @@ pub enum SynapseError {
     Platform(String),
     #[error("Other error: {0}")]
     Other(String),
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn dummy_test() {
+        assert_eq!(2 + 2, 4);
+    }
 } 

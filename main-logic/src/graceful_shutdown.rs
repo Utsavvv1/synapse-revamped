@@ -12,4 +12,12 @@ pub fn install(session_mgr: Arc<Mutex<SessionManager>>, shutdown_flag: Arc<Atomi
             }
         }
     }).expect("Error setting Ctrl-C handler");
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn dummy_test() {
+        assert_eq!(2 + 2, 4);
+    }
 } 

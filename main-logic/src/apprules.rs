@@ -27,15 +27,22 @@ impl AppRules {
                 blacklist: Self::expand_names(parsed.blacklist),
             })
         } else {
-            println!("    apprules.json not found - using default rules.");
-            let whitelist = vec!["code", "notepad", "cursor", "windowsterminal"]
-                .into_iter().map(|s| s.to_string()).collect();
-            let blacklist = vec!["chrome", "discord", "vlc", "spotify"]
-                .into_iter().map(|s| s.to_string()).collect();
+            println!("    apprules.json not found - using empty rules.");
+            let whitelist: Vec<String> = Vec::new();
+            let blacklist: Vec<String> = Vec::new();
             Ok(AppRules {
                 whitelist: Self::expand_names(whitelist),
                 blacklist: Self::expand_names(blacklist),
             })
+        }
+    }
+
+    /// Test-only: construct AppRules directly from whitelist and blacklist.
+    #[cfg(test)]
+    pub fn test_with_rules(whitelist: Vec<String>, blacklist: Vec<String>) -> Self {
+        AppRules {
+            whitelist: Self::expand_names(whitelist),
+            blacklist: Self::expand_names(blacklist),
         }
     }
 
@@ -68,4 +75,51 @@ impl AppRules {
     // pub fn list_blacklist(&self) -> &[String] {
     //     &self.blacklist
     // }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+
+    #[test]
+    fn loads_valid_json() {
+        let json = r#"{"whitelist": ["notepad.exe"], "blacklist": ["chrome.exe"]}"#;
+        fs::write("test_apprules.json", json).unwrap();
+        let path = Path::new("test_apprules.json");
+        let contents = fs::read_to_string(path).unwrap();
+        let parsed: AppRulesFile = serde_json::from_str(&contents).unwrap();
+        assert_eq!(parsed.whitelist, vec!["notepad.exe"]);
+        assert_eq!(parsed.blacklist, vec!["chrome.exe"]);
+        fs::remove_file(path).unwrap();
+    }
+
+
+    
+
+    #[test]
+    fn checks_whitelist_case_insensitive() {
+        let rules = AppRules::new().unwrap();
+        assert!(rules.is_work_app("Notepad.exe"));
+        assert!(rules.is_work_app("NOTEPAD.EXE"));
+    }
+
+    #[test]
+    fn missing_file_leaves_whitelist_empty() {
+        let path = Path::new("apprules.json");
+        let backup = Path::new("apprules.json.bak_test");
+        // If apprules.json exists, rename it
+        let had_file = if path.exists() {
+            fs::rename(path, backup).is_ok()
+        } else {
+            false
+        };
+        let rules = AppRules::new().unwrap();
+        assert!(rules.whitelist.is_empty());
+        // Restore apprules.json if it was present
+        if had_file {
+            let _ = fs::rename(backup, path);
+        }
+    }
 }
