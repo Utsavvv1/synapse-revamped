@@ -35,14 +35,12 @@ impl DbHandle {
         Ok(DbHandle { conn })
     }
 
-    /// Test-only: construct DbHandle with an in-memory SQLite database.
-    #[cfg(test)]
+    /// Construct DbHandle with an in-memory SQLite database (for tests and integration).
     pub fn test_in_memory() -> Self {
         DbHandle { conn: Connection::open_in_memory().unwrap() }
     }
 
-    /// Test-only: get a mutable reference to the underlying connection.
-    #[cfg(test)]
+    /// Get a mutable reference to the underlying connection (for tests and integration).
     pub fn test_conn(&mut self) -> &mut Connection {
         &mut self.conn
     }
@@ -75,6 +73,7 @@ impl DbHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Error as RusqliteError;
 
     fn db_in_memory() -> DbHandle {
         DbHandle { conn: Connection::open_in_memory().unwrap() }
@@ -120,5 +119,55 @@ mod tests {
         let row = rows.next().unwrap().unwrap();
         let name: String = row.get(0).unwrap();
         assert_eq!(name, "test.exe");
+    }
+
+    #[test]
+    fn update_session_and_query() {
+        let db = db_in_memory();
+        db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS focus_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time INTEGER NOT NULL,
+                end_time INTEGER,
+                work_apps TEXT,
+                distraction_attempts INTEGER
+            )",
+            [],
+        ).unwrap();
+        let id = db.insert_session(12345).unwrap();
+        db.update_session(id, 54321, "notepad.exe,word.exe", 2).unwrap();
+        let mut stmt = db.conn.prepare("SELECT end_time, work_apps, distraction_attempts FROM focus_sessions WHERE id = ?1").unwrap();
+        let mut rows = stmt.query([id]).unwrap();
+        let row = rows.next().unwrap().unwrap();
+        let end_time: i64 = row.get(0).unwrap();
+        let work_apps: String = row.get(1).unwrap();
+        let distraction_attempts: i32 = row.get(2).unwrap();
+        assert_eq!(end_time, 54321);
+        assert_eq!(work_apps, "notepad.exe,word.exe");
+        assert_eq!(distraction_attempts, 2);
+    }
+
+    #[test]
+    fn log_event_invalid_table() {
+        let db = db_in_memory();
+        // Do not create the table, should error
+        let result = db.log_event(123, "test.exe", false, Some(false), Some(1), Some(123), Some(124), Some(1));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn insert_session_invalid_table() {
+        let db = db_in_memory();
+        // Do not create the table, should error
+        let result = db.insert_session(12345);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_session_invalid_table() {
+        let db = db_in_memory();
+        // Do not create the table, should error
+        let result = db.update_session(1, 54321, "notepad.exe,word.exe", 2);
+        assert!(result.is_err());
     }
 } 

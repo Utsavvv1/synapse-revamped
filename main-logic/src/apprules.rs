@@ -37,8 +37,7 @@ impl AppRules {
         }
     }
 
-    /// Test-only: construct AppRules directly from whitelist and blacklist.
-    #[cfg(test)]
+    /// Construct AppRules directly from whitelist and blacklist (for tests and integration).
     pub fn test_with_rules(whitelist: Vec<String>, blacklist: Vec<String>) -> Self {
         AppRules {
             whitelist: Self::expand_names(whitelist),
@@ -95,18 +94,24 @@ mod tests {
         fs::remove_file(path).unwrap();
     }
 
-
-    
-
     #[test]
     fn checks_whitelist_case_insensitive() {
-        let rules = AppRules::new().unwrap();
+        let rules = AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec!["chrome.exe".to_string()]);
         assert!(rules.is_work_app("Notepad.exe"));
         assert!(rules.is_work_app("NOTEPAD.EXE"));
+        assert!(!rules.is_work_app("chrome.exe"));
     }
 
     #[test]
-    fn missing_file_leaves_whitelist_empty() {
+    fn checks_blacklist_case_insensitive() {
+        let rules = AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec!["chrome.exe".to_string()]);
+        assert!(rules.is_blocked("chrome.exe"));
+        assert!(rules.is_blocked("CHROME.EXE"));
+        assert!(!rules.is_blocked("notepad.exe"));
+    }
+
+    #[test]
+    fn missing_file_leaves_whitelist_and_blacklist_empty() {
         let path = Path::new("apprules.json");
         let backup = Path::new("apprules.json.bak_test");
         // If apprules.json exists, rename it
@@ -117,9 +122,37 @@ mod tests {
         };
         let rules = AppRules::new().unwrap();
         assert!(rules.whitelist.is_empty());
+        assert!(rules.blacklist.is_empty());
         // Restore apprules.json if it was present
         if had_file {
             let _ = fs::rename(backup, path);
         }
+    }
+
+    #[test]
+    fn expand_names_adds_exe_on_windows() {
+        let names = vec!["notepad".to_string()];
+        let expanded = AppRules::test_with_rules(names.clone(), vec![]).whitelist;
+        #[cfg(target_os = "windows")]
+        assert!(expanded.contains(&"notepad.exe".to_string()));
+        assert!(expanded.contains(&"notepad".to_string()));
+        #[cfg(not(target_os = "windows"))]
+        assert!(expanded.contains(&"notepad".to_string()));
+    }
+
+    #[test]
+    fn handles_empty_lists() {
+        let rules = AppRules::test_with_rules(vec![], vec![]);
+        assert!(!rules.is_work_app("anything.exe"));
+        assert!(!rules.is_blocked("anything.exe"));
+    }
+
+    #[test]
+    fn handles_malformed_json() {
+        let path = Path::new("test_apprules_bad.json");
+        fs::write(path, "not a json").unwrap();
+        let result = fs::read_to_string(path).and_then(|contents| serde_json::from_str::<AppRulesFile>(&contents).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+        assert!(result.is_err());
+        fs::remove_file(path).unwrap();
     }
 }

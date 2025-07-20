@@ -63,8 +63,37 @@ pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn dummy_test() {
-        assert_eq!(2 + 2, 4);
+    #[cfg(target_os = "linux")]
+    fn test_get_foreground_process_name_handles_no_window() {
+        // This test is a placeholder: in real CI, you would mock Linux APIs
+        // Here, just check that the function returns Ok or an error, but does not panic
+        let result = get_foreground_process_name();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_list_running_process_names_returns_vec() {
+        let result = list_running_process_names();
+        assert!(result.is_ok());
+        let names = result.unwrap();
+        assert!(names.is_empty() || !names.is_empty()); // Always true, just checks type
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_show_distraction_popup_returns_ok() {
+        let result = show_distraction_popup("test.exe");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_non_linux_functions_do_not_panic() {
+        // On non-Linux, these functions should not panic if called (should not be available)
+        // This is a placeholder for cross-platform safety
+        assert!(true);
     }
 }

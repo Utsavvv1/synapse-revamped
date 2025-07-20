@@ -21,8 +21,8 @@ pub struct SessionManager {
     last_distraction_app: Option<String>,
     pub last_checked_process: Option<String>,
     pub last_blocked: bool,
-    db_handle: DbHandle,
-    session_id: Option<i64>,
+    pub db_handle: DbHandle,
+    pub session_id: Option<i64>,
     last_app: Option<String>,
     last_app_start: Option<std::time::SystemTime>,
 }
@@ -185,12 +185,14 @@ mod tests {
     use super::*;
     use crate::apprules::AppRules;
     use crate::db::DbHandle;
+    use std::time::{SystemTime, Duration};
 
-    #[test]
-    fn starts_and_ends_session() {
-        let rules = AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec!["chrome.exe".to_string()]);
+    fn setup_manager() -> SessionManager {
+        let rules = AppRules::test_with_rules(
+            vec!["notepad.exe".to_string(), "word.exe".to_string()],
+            vec!["chrome.exe".to_string(), "game.exe".to_string()],
+        );
         let mut db = DbHandle::test_in_memory();
-        // Setup tables if needed
         db.test_conn().execute(
             "CREATE TABLE IF NOT EXISTS focus_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -201,10 +203,92 @@ mod tests {
             )",
             [],
         ).unwrap();
-        let mgr = SessionManager::new(rules, db);
-        // Simulate session start
+        db.test_conn().execute(
+            "CREATE TABLE IF NOT EXISTS app_usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp INTEGER NOT NULL,
+                process_name TEXT NOT NULL,
+                is_blocked BOOLEAN NOT NULL,
+                distraction BOOLEAN,
+                session_id INTEGER,
+                start_time INTEGER,
+                end_time INTEGER,
+                duration_secs INTEGER
+            )",
+            [],
+        ).unwrap();
+        SessionManager::new(rules, db)
+    }
+
+    #[test]
+    fn test_new_manager_initial_state() {
+        let mgr = setup_manager();
         assert!(mgr.current_session.is_none());
-        // Simulate session end
-        // (You may need to call end_active_session or similar)
+        assert!(mgr.last_distraction_app.is_none());
+        assert!(mgr.last_checked_process.is_none());
+        assert!(!mgr.last_blocked);
+        assert!(mgr.session_id.is_none());
+        assert!(mgr.last_app.is_none());
+        assert!(mgr.last_app_start.is_none());
+    }
+
+    #[test]
+    fn test_start_and_end_session() {
+        let mut mgr = setup_manager();
+        // Simulate starting a session
+        let now = SystemTime::now();
+        mgr.current_session = Some(FocusSession {
+            start_time: now,
+            end_time: None,
+            work_apps: vec!["notepad.exe".to_string()],
+            is_active: true,
+            distraction_attempts: 0,
+        });
+        mgr.session_id = Some(1);
+        assert!(mgr.current_session.is_some());
+        // End session
+        mgr.end_active_session().unwrap();
+        assert!(mgr.current_session.is_none());
+        assert!(mgr.session_id.is_none());
+    }
+
+    #[test]
+    fn test_distraction_attempts_increment() {
+        let mut mgr = setup_manager();
+        let now = SystemTime::now();
+        mgr.current_session = Some(FocusSession {
+            start_time: now,
+            end_time: None,
+            work_apps: vec!["notepad.exe".to_string()],
+            is_active: true,
+            distraction_attempts: 0,
+        });
+        if let Some(session) = mgr.current_session.as_mut() {
+            session.distraction_attempts += 1;
+        }
+        assert_eq!(mgr.current_session.as_ref().unwrap().distraction_attempts, 1);
+    }
+
+    #[test]
+    fn test_end_active_session_no_session() {
+        let mut mgr = setup_manager();
+        // Should not panic or error if no session is active
+        assert!(mgr.end_active_session().is_ok());
+    }
+
+    #[test]
+    fn test_focus_session_clone_and_debug() {
+        let now = SystemTime::now();
+        let session = FocusSession {
+            start_time: now,
+            end_time: Some(now + Duration::from_secs(3600)),
+            work_apps: vec!["notepad.exe".to_string(), "word.exe".to_string()],
+            is_active: false,
+            distraction_attempts: 2,
+        };
+        let session2 = session.clone();
+        assert_eq!(session.work_apps, session2.work_apps);
+        let debug_str = format!("{:?}", session2);
+        assert!(debug_str.contains("notepad.exe"));
     }
 }
