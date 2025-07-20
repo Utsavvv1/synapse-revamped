@@ -30,3 +30,7 @@ synapse-revamped/
 ---
 
 **For more details, see comments in each source file.**
+
+to view focus sessins
+sqlite3 synapse_metrics.db ".tables" ".mode column" ".headers on" "SELECT * FROM focus_sessions;"
+sqlite3 synapse_metrics.db ".tables" ".mode column" ".headers on" "SELECT * FROM app_usage_events;"
