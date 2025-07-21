@@ -6,7 +6,7 @@ use crate::error::SynapseError;
 /// Handle for interacting with the SQLite database.
 pub struct DbHandle {
     /// The underlying SQLite connection.
-    pub conn: Connection,
+    conn: Connection,
 }
 
 impl DbHandle {
@@ -47,11 +47,6 @@ impl DbHandle {
     /// Construct DbHandle with an in-memory SQLite database (for tests and integration).
     pub fn test_in_memory() -> Self {
         DbHandle { conn: Connection::open_in_memory().unwrap() }
-    }
-
-    /// Get a mutable reference to the underlying connection (for tests and integration).
-    pub fn test_conn(&mut self) -> &mut Connection {
-        &mut self.conn
     }
 
     /// Logs an app usage event to the database.
@@ -105,6 +100,10 @@ impl DbHandle {
             params![end_time, work_apps, distraction_attempts, session_id],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
+    }
+
+    pub fn test_conn(&mut self) -> &mut Connection {
+        &mut self.conn
     }
 }
 

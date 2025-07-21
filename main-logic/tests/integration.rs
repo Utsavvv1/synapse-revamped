@@ -43,19 +43,13 @@ fn test_full_session_lifecycle_and_metrics() {
 
     // Simulate session start
     let now = SystemTime::now();
-    mgr.current_session = Some(FocusSession {
-        start_time: now,
-        end_time: None,
-        work_apps: vec!["notepad.exe".to_string()],
-        is_active: true,
-        distraction_attempts: 0,
-    });
-    mgr.session_id = Some(1);
-    assert!(mgr.current_session.is_some());
+    mgr.set_current_session(FocusSession::new(now, vec!["notepad.exe".to_string()]));
+    mgr.set_session_id(1);
+    assert!(mgr.current_session().is_some());
 
     // Simulate app usage and logging
     let process = "notepad.exe";
-    let log_result = log_event(Some(&mgr.db_handle), process, false, Some(false), mgr.session_id, Some(100), Some(200), Some(100));
+    let log_result = log_event(Some(mgr.db_handle()), process, false, Some(false), mgr.session_id(), Some(100), Some(200), Some(100));
     assert!(log_result.is_ok());
     metrics.update(process, false);
     metrics.update("chrome.exe", true);
@@ -63,15 +57,15 @@ fn test_full_session_lifecycle_and_metrics() {
     assert_eq!(metrics.blocked_count, 1);
 
     // Simulate distraction
-    if let Some(session) = mgr.current_session.as_mut() {
-        session.distraction_attempts += 1;
+    if let Some(session) = mgr.current_session_mut() {
+        session.increment_distraction_attempts();
     }
-    assert_eq!(mgr.current_session.as_ref().unwrap().distraction_attempts, 1);
+    assert_eq!(mgr.current_session().unwrap().distraction_attempts(), 1);
 
     // End session
     mgr.end_active_session().unwrap();
-    assert!(mgr.current_session.is_none());
-    assert!(mgr.session_id.is_none());
+    assert!(mgr.current_session().is_none());
+    assert!(mgr.session_id().is_none());
 
     // Log summary
     metrics.last_summary = std::time::Instant::now() - std::time::Duration::from_secs(61);

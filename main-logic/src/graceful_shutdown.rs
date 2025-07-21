@@ -1,8 +1,16 @@
+//! Graceful shutdown module: handles Ctrl-C signal for a clean application exit.
+
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use ctrlc;
 use crate::session::SessionManager;
 use crate::logger::log_error;
 
+/// Installs a Ctrl-C handler to gracefully shut down the application.
+///
+/// On Ctrl-C, it sets a shutdown flag and ends any active session.
+///
+/// # Panics
+/// Panics if the Ctrl-C handler cannot be set.
 pub fn install(session_mgr: Arc<Mutex<SessionManager>>, shutdown_flag: Arc<AtomicBool>) {
     ctrlc::set_handler(move || {
         shutdown_flag.store(true, Ordering::SeqCst);

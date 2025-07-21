@@ -9,19 +9,15 @@ use crate::error::SynapseError;
 /// Structure for deserializing the application rules JSON file.
 #[derive(Debug, Deserialize, Clone)]
 pub struct AppRulesFile {
-    /// List of whitelisted process names.
-    pub whitelist: Vec<String>,
-    /// List of blacklisted process names.
-    pub blacklist: Vec<String>,
+    whitelist: Vec<String>,
+    blacklist: Vec<String>,
 }
 
 /// Application rules for process whitelisting and blacklisting.
 #[derive(Clone)]
 pub struct AppRules {
-    /// Whitelisted process names (expanded for platform).
-    pub whitelist: Vec<String>,
-    /// Blacklisted process names (expanded for platform).
-    pub blacklist: Vec<String>,
+    whitelist: Vec<String>,
+    blacklist: Vec<String>,
 }
 
 impl AppRules {
@@ -85,12 +81,14 @@ impl AppRules {
         self.blacklist.iter().any(|name| name.eq_ignore_ascii_case(process_name))
     }
 
-    // pub fn list_whitelist(&self) -> &[String] {
-    //     &self.whitelist
-    // }
-    // pub fn list_blacklist(&self) -> &[String] {
-    //     &self.blacklist
-    // }
+    /// Returns a reference to the whitelist.
+    pub fn whitelist(&self) -> &Vec<String> {
+        &self.whitelist
+    }
+    /// Returns a reference to the blacklist.
+    pub fn blacklist(&self) -> &Vec<String> {
+        &self.blacklist
+    }
 }
 
 #[cfg(test)]
@@ -138,8 +136,8 @@ mod tests {
             false
         };
         let rules = AppRules::new().unwrap();
-        assert!(rules.whitelist.is_empty());
-        assert!(rules.blacklist.is_empty());
+        assert!(rules.whitelist().is_empty());
+        assert!(rules.blacklist().is_empty());
         // Restore apprules.json if it was present
         if had_file {
             let _ = fs::rename(backup, path);

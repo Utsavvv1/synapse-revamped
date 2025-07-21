@@ -46,11 +46,11 @@ impl Metrics {
     /// # Arguments
     /// * `session_mgr` - Reference to the session manager
     pub fn update_from_session(&mut self, session_mgr: &SessionManager) {
-        if let Some(proc) = &session_mgr.last_checked_process {
-            self.update(proc, session_mgr.last_blocked);
+        if let Some(proc) = session_mgr.last_checked_process() {
+            self.update(proc, session_mgr.last_blocked());
         }
-        if let Some(session) = &session_mgr.current_session {
-            for app in &session.work_apps {
+        if let Some(session) = session_mgr.current_session() {
+            for app in session.work_apps() {
                 *self.app_frequency.entry(app.clone()).or_insert(0) += 1;
             }
         }
@@ -114,15 +114,9 @@ mod tests {
             crate::apprules::AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec![]),
             crate::db::DbHandle::test_in_memory(),
         );
-        mgr.last_checked_process = Some("notepad.exe".to_string());
-        mgr.last_blocked = false;
-        mgr.current_session = Some(FocusSession {
-            start_time: SystemTime::now(),
-            end_time: None,
-            work_apps: vec!["notepad.exe".to_string(), "word.exe".to_string()],
-            is_active: true,
-            distraction_attempts: 0,
-        });
+        mgr.set_last_checked_process("notepad.exe".to_string());
+        mgr.set_last_blocked(false);
+        mgr.set_current_session(FocusSession::new(SystemTime::now(), vec!["notepad.exe".to_string(), "word.exe".to_string()]));
         metrics.update_from_session(&mgr);
         assert_eq!(metrics.total_checks, 1);
         assert_eq!(*metrics.app_frequency.get("notepad.exe").unwrap(), 2); // once from last_checked_process, once from work_apps

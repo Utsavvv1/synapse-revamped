@@ -1,3 +1,4 @@
+//! Main application entry point and logic loop.
 mod error;
 mod session;
 mod metrics;
