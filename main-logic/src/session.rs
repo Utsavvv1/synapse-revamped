@@ -5,6 +5,7 @@ use crate::platform::{get_foreground_process_name, list_running_process_names, s
 use crate::logger::log_event;
 use crate::db::DbHandle;
 use crate::error::SynapseError;
+use crate::types::SessionId;
 use std::time::SystemTime;
 
 /// Represents a single focus session, including timing, apps used, and distraction attempts.
@@ -65,7 +66,7 @@ pub struct SessionManager {
     /// Database handle for session/event logging.
     db_handle: DbHandle,
     /// The current session's database ID, if any.
-    session_id: Option<i64>,
+    session_id: Option<SessionId>,
     /// The last app in focus.
     last_app: Option<String>,
     /// The start time of the last app in focus.
@@ -121,7 +122,7 @@ impl SessionManager {
                 let end_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
                 let work_apps_str = session.work_apps().join(",");
                 let distraction_attempts = session.distraction_attempts() as i32;
-                self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts)
+                self.db_handle.update_session(session_id.into(), end_time, &work_apps_str, distraction_attempts)
                     .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
             }
         }
@@ -146,7 +147,7 @@ impl SessionManager {
         &self.db_handle
     }
     /// Returns the current session ID, if any.
-    pub fn session_id(&self) -> Option<i64> {
+    pub fn session_id(&self) -> Option<SessionId> {
         self.session_id
     }
     /// Returns a mutable reference to the current focus session, if any.
@@ -163,7 +164,7 @@ impl SessionManager {
     /// Sets the current session (for tests and integration).
     pub fn set_current_session(&mut self, session: FocusSession) { self.current_session = Some(session); }
     /// Sets the session ID (for tests and integration).
-    pub fn set_session_id(&mut self, id: i64) {
+    pub fn set_session_id(&mut self, id: SessionId) {
         self.session_id = Some(id);
     }
 
@@ -207,7 +208,7 @@ impl SessionManager {
                         &last_app,
                         false,
                         None,
-                        self.session_id,
+                        self.session_id.map(|id| id.into()),
                         Some(start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
                         Some(now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
                         Some(duration),
@@ -227,7 +228,7 @@ impl SessionManager {
             proc_name,
             is_blocked,
             Some(is_blocked),
-            self.session_id,
+            self.session_id.map(|id| id.into()),
             Some(now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
             None,
             None,
@@ -266,7 +267,7 @@ impl SessionManager {
                 distraction_attempts: 0,
             };
             let session_id = self.db_handle.insert_session(session.start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64)?;
-            self.session_id = Some(session_id);
+            self.session_id = Some(SessionId::from(session_id));
             self.current_session = Some(session);
         }
         Ok(())
@@ -291,7 +292,7 @@ impl SessionManager {
                     let end_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
                     let work_apps_str = session.work_apps().join(",");
                     let distraction_attempts = session.distraction_attempts() as i32;
-                    self.db_handle.update_session(session_id, end_time, &work_apps_str, distraction_attempts)
+                    self.db_handle.update_session(session_id.into(), end_time, &work_apps_str, distraction_attempts)
                         .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
                 }
             }
@@ -364,7 +365,7 @@ mod tests {
             is_active: true,
             distraction_attempts: 0,
         });
-        mgr.session_id = Some(1);
+        mgr.session_id = Some(SessionId::from(1));
         assert!(mgr.current_session.is_some());
         // End session
         mgr.end_active_session().unwrap();

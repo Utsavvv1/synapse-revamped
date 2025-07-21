@@ -7,6 +7,7 @@ mod platform;
 mod logger;
 mod db;
 mod graceful_shutdown;
+mod types;
 
 use session::SessionManager;
 use metrics::Metrics;

@@ -13,10 +13,12 @@ pub mod logger;
 pub mod metrics;
 pub mod platform;
 pub mod session;
+pub mod types;
 
 // Re-export key types for a cleaner public API.
 pub use apprules::AppRules;
 pub use db::DbHandle;
 pub use error::SynapseError;
 pub use metrics::Metrics;
-pub use session::{FocusSession, SessionManager}; 
+pub use session::{FocusSession, SessionManager};
+pub use types::SessionId; 

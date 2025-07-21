@@ -44,12 +44,12 @@ fn test_full_session_lifecycle_and_metrics() {
     // Simulate session start
     let now = SystemTime::now();
     mgr.set_current_session(FocusSession::new(now, vec!["notepad.exe".to_string()]));
-    mgr.set_session_id(1);
+    mgr.set_session_id(1.into());
     assert!(mgr.current_session().is_some());
 
     // Simulate app usage and logging
     let process = "notepad.exe";
-    let log_result = log_event(Some(mgr.db_handle()), process, false, Some(false), mgr.session_id(), Some(100), Some(200), Some(100));
+    let log_result = log_event(Some(mgr.db_handle()), process, false, Some(false), mgr.session_id().map(Into::into), Some(100), Some(200), Some(100));
     assert!(log_result.is_ok());
     metrics.update(process, false);
     metrics.update("chrome.exe", true);
