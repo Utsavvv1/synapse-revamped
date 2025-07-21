@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::time::{Instant};
 use crate::session::SessionManager;
 use crate::error::SynapseError;
+use crate::constants::SUMMARY_INTERVAL_SECS;
 
 /// Tracks metrics for app usage and focus sessions.
 pub struct Metrics {
@@ -58,7 +59,7 @@ impl Metrics {
 
     /// Returns true if it is time to log a summary (every 60 seconds).
     pub fn should_log_summary(&self) -> bool {
-        self.last_summary.elapsed().as_secs() >= 60
+        self.last_summary.elapsed().as_secs() >= SUMMARY_INTERVAL_SECS
     }
 
     /// Logs a summary of metrics to stdout and resets the timer.

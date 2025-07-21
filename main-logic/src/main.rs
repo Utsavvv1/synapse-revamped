@@ -8,12 +8,14 @@ mod logger;
 mod db;
 mod graceful_shutdown;
 mod types;
+mod constants;
 
 use session::SessionManager;
 use metrics::Metrics;
 use apprules::AppRules;
 use db::DbHandle;
 use logger::log_error;
+use constants::MAIN_LOOP_SLEEP_MS;
 
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 
@@ -49,7 +51,7 @@ fn main() {
                 log_error(&e);
             }
         }
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::sleep(std::time::Duration::from_millis(MAIN_LOOP_SLEEP_MS));
     }
     // After loop: ensure session is ended and logged
     let mut mgr = session_mgr.lock().unwrap();
