@@ -30,9 +30,9 @@ export default function SynapseApp() {
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
             <span className="font-medium text-white text-base sm:text-lg lg:text-xl body-text">{currentTime}</span>
             <div className="phone-connected rounded-full px-4 py-2 gap-2 flex items-center transform scale-90">
-              <span className="text-gray-200 font-medium text-sm body-text">Phone Connected</span>
-              <div className="relative">
-                <div className="w-6 h-6 bg-synapse-dark-alt rounded-full flex items-center justify-center">
+              <span className="text-gray-200 font-medium text-sm body-text mr-2">Phone Connected</span> {/* Added mr-2 for gap after text */}
+              <div className="relative flex items-center gap-2"> {/* Added gap-2 for space after dot and circle */}
+                <div className="w-6 h-6 bg-synapse-dark-alt rounded-full flex items-center justify-center mr-1 ml-2"> {/* Moved darkalt circle further right with ml-2 */}
                   <div className="w-1.5 h-1.5 bg-green-400 rounded-full absolute -left-2 pulse-dot" />
                 </div>
               </div>
@@ -132,4 +132,4 @@ export default function SynapseApp() {
       </div>
     </div>
   )
-} 
+}
