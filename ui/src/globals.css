@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 172 64% 6%;
+    --card: 0 0% 100%;
+    --card-foreground: 172 64% 6%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 172 64% 6%;
+    --primary: 172 64% 6%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 73 85% 60%;
+    --secondary-foreground: 172 64% 6%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 172 30% 40%;
+    --accent: 73 85% 60%;
+    --accent-foreground: 172 64% 6%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 172 64% 6%;
+    --radius: 0.5rem;
+    /* Synapse specific colors */
+    --synapse-dark: 172 64% 6%;
+    --synapse-dark-alt: 172 56% 10%;
+    --synapse-accent: 73 85% 60%;
+    --synapse-glass: 0 0% 46%;
+    --synapse-glass-opacity: 0.31;
+    --synapse-text-light: 0 0% 95%;
+  }
+  .dark {
+    --background: 172 64% 6%;
+    --foreground: 0 0% 95%;
+    --card: 172 64% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 172 64% 6%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 73 85% 60%;
+    --primary-foreground: 172 64% 6%;
+    --secondary: 172 56% 10%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 172 56% 10%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 73 85% 60%;
+    --accent-foreground: 172 64% 6%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 172 56% 10%;
+    --input: 172 56% 10%;
+    --ring: 73 85% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Wix Madefor Text", system-ui, sans-serif;
+    font-weight: 500;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  .glass-card-dark {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card-dark:hover {
+    background: rgba(0, 0, 0, 0.55);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .hero-text {
+    letter-spacing: -0.07em;
+  }
+  .body-text {
+    letter-spacing: -0.01em;
+  }
+  .phone-connected {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .pulse-dot {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(212, 232, 77, 0.3), 0 0 40px rgba(212, 232, 77, 0.1);
+  }
+  .glow-accent:hover {
+    box-shadow: 0 0 30px rgba(212, 232, 77, 0.5), 0 0 60px rgba(212, 232, 77, 0.2);
+  }
+  .progress-bar {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.1) 100%
+    );
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .progress-fill {
+    background: linear-gradient(90deg, hsl(var(--synapse-dark)) 0%, hsl(var(--synapse-accent)) 100%);
+    box-shadow: 0 0 10px rgba(212, 232, 77, 0.4);
+  }
+  .button-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .button-hover:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  }
+  .button-accent-hover:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(212, 232, 77, 0.4);
+  }
+  @keyframes pulse-green {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.1);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+} 
