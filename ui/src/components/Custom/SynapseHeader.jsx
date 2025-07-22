@@ -4,7 +4,7 @@ import { Zap } from "lucide-react"
 export default function SynapseHeader({ currentTime }) {
   return (
     <header className="flex justify-between items-center mb-4 lg:mb-6">
-      <h1 className="font-serif italic text-synapse-dark text-xl sm:text-2xl lg:text-3xl font-light tracking-tight">
+      <h1 className="font-dmserif tracking-tightest italic text-synapse-dark text-xl sm:text-2xl lg:text-3xl font-light">
         Synapse
       </h1>
       <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">

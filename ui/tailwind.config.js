@@ -31,6 +31,17 @@ module.exports = {
         'synapse-glass': "hsl(var(--synapse-glass))",
         'synapse-text-light': "hsl(var(--synapse-text-light))",
       },
+      fontFamily: {
+        instrument: ["'Instrument Serif'", 'serif'],
+        dmserif: ["'DM Serif Text'", 'serif'],
+        wix: ["'Wix Madefor Text'", 'sans-serif'],
+      },
+      letterSpacing: {
+        tightest: '-0.07em', // -7%
+        tighter: '-0.03em',  // -3%
+        box: '-0.01em',      // -1%
+        normal: '0em',       // 0%
+      },
     },
   },
   plugins: [
