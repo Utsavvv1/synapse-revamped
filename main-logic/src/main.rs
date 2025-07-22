@@ -23,6 +23,11 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
+    // Check Supabase connection at startup
+    match SupabaseSync::from_env() {
+        Ok(_) => println!("Supabase connection established!"),
+        Err(e) => println!("Supabase connection failed: {}", e),
+    }
     let apprules = match AppRules::new() {
         Ok(rules) => rules,
         Err(e) => {
@@ -67,7 +72,10 @@ fn main() {
                 let sync = sync.clone();
                 let status = sync_status.clone();
                 rt.spawn(async move {
-                    let _ = sync.push_focus_session_with_status(&session, Some(&status)).await;
+                    match sync.push_focus_session_with_status(&session, Some(&status)).await {
+                        Ok(_) => println!("[Supabase] Session pushed successfully!"),
+                        Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+                    }
                 });
             }
         }
