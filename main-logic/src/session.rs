@@ -7,20 +7,23 @@ use crate::db::DbHandle;
 use crate::error::SynapseError;
 use crate::types::SessionId;
 use std::time::SystemTime;
+use serde::{Serialize, Deserialize};
 
 /// Status of an app or session (blocked or allowed).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppStatus {
     Allowed,
     Blocked,
 }
 
 /// Represents a single focus session, including timing, apps used, and distraction attempts.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusSession {
     /// Session start time.
+    #[serde(with = "crate::session::serde_system_time")]
     start_time: SystemTime,
     /// Session end time (if ended).
+    #[serde(with = "crate::session::serde_option_system_time")]
     end_time: Option<SystemTime>,
     /// List of work apps used during the session.
     work_apps: Vec<String>,
@@ -305,6 +308,54 @@ impl SessionManager {
             }
         }
         Ok(())
+    }
+}
+
+// Serde helpers for SystemTime serialization
+pub mod serde_system_time {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+    use std::time::{SystemTime, UNIX_EPOCH, Duration};
+
+    pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let duration = time.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;
+        serializer.serialize_u64(duration.as_secs())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let secs = u64::deserialize(deserializer)?;
+        Ok(UNIX_EPOCH + Duration::from_secs(secs))
+    }
+}
+
+pub mod serde_option_system_time {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+    use std::time::{SystemTime, UNIX_EPOCH, Duration};
+
+    pub fn serialize<S>(time: &Option<SystemTime>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match time {
+            Some(t) => {
+                let duration = t.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;
+                serializer.serialize_some(&duration.as_secs())
+            }
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<SystemTime>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<u64>::deserialize(deserializer)?;
+        Ok(opt.map(|secs| UNIX_EPOCH + Duration::from_secs(secs)))
     }
 }
 

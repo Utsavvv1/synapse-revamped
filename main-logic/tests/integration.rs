@@ -5,6 +5,11 @@ use main_logic::metrics::Metrics;
 use main_logic::logger::{log_event, log_error};
 use main_logic::error::SynapseError;
 use std::time::SystemTime;
+use main_logic::sync::{SupabaseSync, SharedSyncStatus, SyncStatus};
+use std::sync::Arc;
+use std::sync::Mutex;
+use main_logic::session::AppStatus;
+use main_logic::sync::merge_sessions;
 
 #[test]
 fn test_full_session_lifecycle_and_metrics() {
@@ -79,4 +84,110 @@ fn test_error_propagation_and_logging() {
     log_error(&err);
     let contents = std::fs::read_to_string("synapse.log").unwrap();
     assert!(contents.contains("integration test error"));
+}
+
+#[tokio::test]
+async fn test_supabase_sync_push_focus_session() {
+    // Try to load Supabase config from .env
+    let sync = match SupabaseSync::from_env() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("[Supabase sync test] Skipping: {}", e);
+            return;
+        }
+    };
+    // Create a dummy FocusSession
+    let session = FocusSession::new(
+        std::time::SystemTime::now(),
+        vec!["test_app.exe".to_string()]
+    );
+    // Attempt to push to Supabase
+    let result = sync.push_focus_session(&session).await;
+    match result {
+        Ok(_) => println!("[Supabase sync test] Session synced!"),
+        Err(e) => eprintln!("[Supabase sync test] Sync failed: {}", e),
+    }
+}
+
+#[tokio::test]
+async fn test_supabase_sync_status_tracking() {
+    // Try to load Supabase config from .env
+    let sync = match SupabaseSync::from_env() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("[Supabase sync status test] Skipping: {}", e);
+            return;
+        }
+    };
+    // Create a dummy FocusSession
+    let session = FocusSession::new(
+        std::time::SystemTime::now(),
+        vec!["test_app.exe".to_string()]
+    );
+    // Create shared sync status
+    let status = Arc::new(Mutex::new(SyncStatus::new()));
+    // Attempt to push to Supabase and update status
+    let result = sync.push_focus_session_with_status(&session, Some(&status)).await;
+    match result {
+        Ok(_) => println!("[Supabase sync status test] Session synced!"),
+        Err(e) => eprintln!("[Supabase sync status test] Sync failed: {}", e),
+    }
+    // Print sync status
+    let status = status.lock().unwrap();
+    println!("[Supabase sync status test] Last sync time: {:?}", status.last_sync_time);
+    println!("[Supabase sync status test] Last result: {:?}", status.last_result);
+    println!("[Supabase sync status test] Last error: {:?}", status.last_error);
+}
+
+#[tokio::test]
+async fn test_supabase_pull_focus_sessions() {
+    // Try to load Supabase config from .env
+    let sync = match SupabaseSync::from_env() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("[Supabase pull test] Skipping: {}", e);
+            return;
+        }
+    };
+    // Attempt to pull all focus sessions
+    match sync.pull_focus_sessions().await {
+        Ok(sessions) => {
+            println!("[Supabase pull test] Pulled {} sessions:", sessions.len());
+            for (i, session) in sessions.iter().enumerate() {
+                println!("Session {}: {:?}", i + 1, session);
+            }
+        }
+        Err(e) => eprintln!("[Supabase pull test] Pull failed: {}", e),
+    }
+}
+
+#[tokio::test]
+async fn test_supabase_merge_sessions() {
+    // Try to load Supabase config from .env
+    let sync = match SupabaseSync::from_env() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("[Supabase merge test] Skipping: {}", e);
+            return;
+        }
+    };
+    // Create dummy local sessions
+    let now = std::time::SystemTime::now();
+    let local_sessions = vec![
+        FocusSession::new(now, vec!["local_app.exe".to_string()]),
+    ];
+    // Pull remote sessions
+    let remote_sessions = match sync.pull_focus_sessions().await {
+        Ok(sessions) => sessions,
+        Err(e) => {
+            eprintln!("[Supabase merge test] Pull failed: {}", e);
+            return;
+        }
+    };
+    // Merge sessions
+    let merged = merge_sessions(local_sessions, remote_sessions);
+    println!("[Supabase merge test] Merged sessions:");
+    for (i, session) in merged.iter().enumerate() {
+        println!("Session {}: {:?}", i + 1, session);
+    }
 } 

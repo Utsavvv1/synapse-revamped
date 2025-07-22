@@ -9,6 +9,7 @@ mod db;
 mod graceful_shutdown;
 mod types;
 mod constants;
+mod sync;
 
 use session::SessionManager;
 use metrics::Metrics;
@@ -16,8 +17,10 @@ use apprules::AppRules;
 use db::DbHandle;
 use logger::log_error;
 use constants::MAIN_LOOP_SLEEP_MS;
-
+use sync::{SupabaseSync, SyncStatus};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     let apprules = match AppRules::new() {
@@ -40,6 +43,12 @@ fn main() {
 
     graceful_shutdown::install(session_mgr.clone(), shutdown_flag.clone());
 
+    // Set up Supabase sync (optional, can be disabled if env not set)
+    let supabase_sync = SupabaseSync::from_env().ok();
+    let sync_status = Arc::new(Mutex::new(SyncStatus::new()));
+    // Set up a Tokio runtime for async tasks
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+
     while !shutdown_flag.load(Ordering::SeqCst) {
         let mut mgr = session_mgr.lock().unwrap();
         if let Err(e) = mgr.poll() {
@@ -51,7 +60,18 @@ fn main() {
                 log_error(&e);
             }
         }
-        std::thread::sleep(std::time::Duration::from_millis(MAIN_LOOP_SLEEP_MS));
+        // If a session just ended, push it to Supabase in the background
+        if let Some(sync) = &supabase_sync {
+            if let Some(session) = mgr.current_session() {
+                let session = session.clone();
+                let sync = sync.clone();
+                let status = sync_status.clone();
+                rt.spawn(async move {
+                    let _ = sync.push_focus_session_with_status(&session, Some(&status)).await;
+                });
+            }
+        }
+        thread::sleep(Duration::from_millis(MAIN_LOOP_SLEEP_MS));
     }
     // After loop: ensure session is ended and logged
     let mut mgr = session_mgr.lock().unwrap();
