@@ -96,6 +96,11 @@ impl SessionManager {
             .map_err(|e| SynapseError::Platform(format!("Failed to list running processes: {}", e)))?;
         let any_work_app_running = running_processes.iter().any(|name| self.apprules.is_work_app(name));
 
+        // NEW: Start session if any work app is running and no session is active
+        if any_work_app_running && self.current_session.is_none() {
+            self.start_new_session_if_needed(&running_processes)?;
+        }
+
         if let Some(proc) = get_foreground_process_name()
             .map_err(|e| SynapseError::Platform(format!("Failed to get foreground process: {}", e)))?
         {
