@@ -56,22 +56,48 @@ fn main() {
 
     while !shutdown_flag.load(Ordering::SeqCst) {
         let mut mgr = session_mgr.lock().unwrap();
-        if let Err(e) = mgr.poll() {
-            log_error(&e);
-        }
+        let poll_result = match mgr.poll() {
+            Ok(ended_session) => ended_session,
+            Err(e) => {
+                log_error(&e);
+                None
+            }
+        };
         metrics.update_from_session(&mgr);
         if metrics.should_log_summary() {
             if let Err(e) = metrics.log_summary() {
                 log_error(&e);
             }
         }
-        // If a session just ended, push it to Supabase in the background
-        if let Some(sync) = &supabase_sync {
-            if let Some(session) = mgr.current_session() {
-                let session = session.clone();
-                let sync = sync.clone();
+        // If a session just ended, push it to Supabase
+        if let (Some(sync), Some(session)) = (&supabase_sync, poll_result) {
+            match serde_json::to_string_pretty(&session) {
+                Ok(json) => println!("[DEBUG] Pushing session to Supabase: {}", json),
+                Err(e) => eprintln!("[DEBUG] Failed to serialize session: {}", e),
+            }
+            let status = sync_status.clone();
+            let sync = sync.clone();
+            rt.block_on(async move {
+                match sync.push_focus_session_with_status(&session, Some(&status)).await {
+                    Ok(_) => println!("[Supabase] Session pushed successfully!"),
+                    Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+                }
+            });
+        }
+        thread::sleep(Duration::from_millis(MAIN_LOOP_SLEEP_MS));
+    }
+    // After loop: ensure session is ended and logged
+    let mut mgr = session_mgr.lock().unwrap();
+    match mgr.end_active_session() {
+        Ok(Some(session)) => {
+            match serde_json::to_string_pretty(&session) {
+                Ok(json) => println!("[DEBUG] Pushing session to Supabase: {}", json),
+                Err(e) => eprintln!("[DEBUG] Failed to serialize session: {}", e),
+            }
+            if let Some(sync) = &supabase_sync {
                 let status = sync_status.clone();
-                rt.spawn(async move {
+                let rt2 = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+                rt2.block_on(async move {
                     match sync.push_focus_session_with_status(&session, Some(&status)).await {
                         Ok(_) => println!("[Supabase] Session pushed successfully!"),
                         Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
@@ -79,11 +105,7 @@ fn main() {
                 });
             }
         }
-        thread::sleep(Duration::from_millis(MAIN_LOOP_SLEEP_MS));
-    }
-    // After loop: ensure session is ended and logged
-    let mut mgr = session_mgr.lock().unwrap();
-    if let Err(e) = mgr.end_active_session() {
-        log_error(&e);
+        Ok(None) => {},
+        Err(e) => log_error(&e),
     }
 }
