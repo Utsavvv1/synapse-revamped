@@ -3,12 +3,11 @@ use main_logic::db::DbHandle;
 use main_logic::session::{SessionManager, FocusSession};
 use main_logic::metrics::Metrics;
 use main_logic::logger::{log_event, log_error};
-use main_logic::error::SynapseError;
+use main_logic::error::{SynapseError, SupabaseError};
 use std::time::SystemTime;
 use main_logic::sync::{SupabaseSync, SharedSyncStatus, SyncStatus};
 use std::sync::Arc;
 use std::sync::Mutex;
-use main_logic::session::AppStatus;
 use main_logic::sync::merge_sessions;
 
 #[test]
@@ -89,7 +88,7 @@ fn test_error_propagation_and_logging() {
 #[tokio::test]
 async fn test_supabase_sync_push_focus_session() {
     // Try to load Supabase config from .env
-    let sync = match SupabaseSync::from_env() {
+    let sync = match SupabaseSync::from_env(false) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("[Supabase sync test] Skipping: {}", e);
@@ -112,7 +111,7 @@ async fn test_supabase_sync_push_focus_session() {
 #[tokio::test]
 async fn test_supabase_sync_status_tracking() {
     // Try to load Supabase config from .env
-    let sync = match SupabaseSync::from_env() {
+    let sync = match SupabaseSync::from_env(false) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("[Supabase sync status test] Skipping: {}", e);
@@ -142,7 +141,7 @@ async fn test_supabase_sync_status_tracking() {
 #[tokio::test]
 async fn test_supabase_pull_focus_sessions() {
     // Try to load Supabase config from .env
-    let sync = match SupabaseSync::from_env() {
+    let sync = match SupabaseSync::from_env(false) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("[Supabase pull test] Skipping: {}", e);
@@ -164,7 +163,7 @@ async fn test_supabase_pull_focus_sessions() {
 #[tokio::test]
 async fn test_supabase_merge_sessions() {
     // Try to load Supabase config from .env
-    let sync = match SupabaseSync::from_env() {
+    let sync = match SupabaseSync::from_env(false) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("[Supabase merge test] Skipping: {}", e);

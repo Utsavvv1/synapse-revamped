@@ -64,6 +64,18 @@ pub fn log_error(err: &SynapseError) {
     eprintln!("{}", entry);
 }
 
+pub fn log_error_with_context(context: &str, err: &crate::error::SynapseError) {
+    let entry = format!("[ERROR] {}: {}\n", context, err);
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("synapse.log")
+    {
+        let _ = file.write_all(entry.as_bytes());
+    }
+    eprintln!("{}", entry);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
