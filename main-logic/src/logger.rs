@@ -41,8 +41,10 @@ pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, dis
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open("synapse.log")?;
-    file.write_all(entry.as_bytes())?;
+        .open("synapse.log")
+        .map_err(|e| SynapseError::Io(std::io::Error::new(e.kind(), format!("Failed to open synapse.log: {}", e))))?;
+    file.write_all(entry.as_bytes())
+        .map_err(|e| SynapseError::Io(std::io::Error::new(e.kind(), format!("Failed to write to synapse.log: {}", e))))?;
     Ok(())
 }
 

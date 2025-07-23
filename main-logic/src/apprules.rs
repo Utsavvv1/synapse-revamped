@@ -5,23 +5,20 @@ use std::path::Path;
 use serde::Deserialize;
 use serde_json;
 use crate::error::SynapseError;
+use crate::session::AppStatus;
 
 /// Structure for deserializing the application rules JSON file.
 #[derive(Debug, Deserialize, Clone)]
 pub struct AppRulesFile {
-    /// List of whitelisted process names.
-    pub whitelist: Vec<String>,
-    /// List of blacklisted process names.
-    pub blacklist: Vec<String>,
+    whitelist: Vec<String>,
+    blacklist: Vec<String>,
 }
 
 /// Application rules for process whitelisting and blacklisting.
 #[derive(Clone)]
 pub struct AppRules {
-    /// Whitelisted process names (expanded for platform).
-    pub whitelist: Vec<String>,
-    /// Blacklisted process names (expanded for platform).
-    pub blacklist: Vec<String>,
+    whitelist: Vec<String>,
+    blacklist: Vec<String>,
 }
 
 impl AppRules {
@@ -32,8 +29,10 @@ impl AppRules {
     pub fn new() -> Result<Self, SynapseError> {
         let path = Path::new("apprules.json");
         if path.exists() {
-            let contents = fs::read_to_string(path)?;
-            let parsed: AppRulesFile = serde_json::from_str(&contents)?;
+            let contents = fs::read_to_string(path)
+                .map_err(|e| SynapseError::Config(format!("Failed to read apprules.json: {}", e)))?;
+            let parsed: AppRulesFile = serde_json::from_str(&contents)
+                .map_err(|e| SynapseError::Config(format!("Failed to parse apprules.json: {}", e)))?;
             Ok(AppRules {
                 whitelist: Self::expand_names(parsed.whitelist),
                 blacklist: Self::expand_names(parsed.blacklist),
@@ -83,12 +82,23 @@ impl AppRules {
         self.blacklist.iter().any(|name| name.eq_ignore_ascii_case(process_name))
     }
 
-    // pub fn list_whitelist(&self) -> &[String] {
-    //     &self.whitelist
-    // }
-    // pub fn list_blacklist(&self) -> &[String] {
-    //     &self.blacklist
-    // }
+    /// Returns the AppStatus (Blocked or Allowed) for a given process name.
+    pub fn get_app_status(&self, process_name: &str) -> AppStatus {
+        if self.is_blocked(process_name) {
+            AppStatus::Blocked
+        } else {
+            AppStatus::Allowed
+        }
+    }
+
+    /// Returns a reference to the whitelist.
+    pub fn whitelist(&self) -> &Vec<String> {
+        &self.whitelist
+    }
+    /// Returns a reference to the blacklist.
+    pub fn blacklist(&self) -> &Vec<String> {
+        &self.blacklist
+    }
 }
 
 #[cfg(test)]
@@ -136,8 +146,8 @@ mod tests {
             false
         };
         let rules = AppRules::new().unwrap();
-        assert!(rules.whitelist.is_empty());
-        assert!(rules.blacklist.is_empty());
+        assert!(rules.whitelist().is_empty());
+        assert!(rules.blacklist().is_empty());
         // Restore apprules.json if it was present
         if had_file {
             let _ = fs::rename(backup, path);
