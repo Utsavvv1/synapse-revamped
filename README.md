@@ -23,6 +23,21 @@ synapse-revamped/
 │   ├── Cargo.toml             # Rust dependencies and project metadata
 │   └── Cargo.lock             # Cargo dependency lockfile
 │
+├── src-tauri/                 # Tauri app configuration and Rust backend for desktop
+│   ├── src/
+│   ├── icons/
+│   ├── capabilities/
+│   ├── tauri.conf.json
+│   ├── Cargo.toml
+│   ├── build.rs
+│   └── .gitignore
+│
+├── ui/                        # React + Vite frontend
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   ├── ...
+│
 ├── target/                    # Build artifacts (auto-generated)
 └── README.md                  # Project overview and structure (this file)
 ```
