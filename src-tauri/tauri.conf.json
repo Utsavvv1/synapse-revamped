@@ -2,12 +2,12 @@
   "$schema": "../ui/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synapse",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.tauri.synapse",
   "build": {
-    "frontendDist": "../build",
+    "beforeDevCommand": "npm --prefix ui run dev",
+    "beforeBuildCommand": "npm --prefix ui run build",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "frontendDist": "../ui/dist"
   },
   "app": {
     "windows": [
@@ -19,9 +19,7 @@
         "fullscreen": false
       }
     ],
-    "security": {
-      "csp": null
-    }
+    "security": { "csp": null }
   },
   "bundle": {
     "active": true,
