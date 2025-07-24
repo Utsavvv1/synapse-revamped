@@ -22,7 +22,8 @@ use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::Duration;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Check Supabase connection at startup
     match SupabaseSync::from_env(false) {
         Ok(_) => println!("Supabase connection established!"),
@@ -43,16 +44,21 @@ fn main() {
             return;
         }
     };
-    let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle)));
+    let supabase_sync = SupabaseSync::from_env(false).ok();
+    let sync_status = Arc::new(Mutex::new(SyncStatus::new()));
+    // Set up a Tokio runtime for async tasks
+    // let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime"); // This line is removed as per edit hint
+
+    let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
     graceful_shutdown::install(session_mgr.clone(), shutdown_flag.clone());
 
     // Set up Supabase sync (optional, can be disabled if env not set)
-    let supabase_sync = SupabaseSync::from_env(false).ok();
-    let sync_status = Arc::new(Mutex::new(SyncStatus::new()));
-    // Set up a Tokio runtime for async tasks
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+    // let supabase_sync = SupabaseSync::from_env(false).ok(); // This line is removed as per edit hint
+    // let sync_status = Arc::new(Mutex::new(SyncStatus::new())); // This line is removed as per edit hint
+    // Set up a Tokio runtime for async tasks // This line is removed as per edit hint
+    // let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime"); // This line is removed as per edit hint
 
     while !shutdown_flag.load(Ordering::SeqCst) {
         let mut mgr = session_mgr.lock().unwrap();
@@ -77,12 +83,26 @@ fn main() {
             }
             let status = sync_status.clone();
             let sync = sync.clone();
-            rt.block_on(async move {
-                match sync.push_focus_session_with_status(&session, Some(&status)).await {
-                    Ok(_) => println!("[Supabase] Session pushed successfully!"),
-                    Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+            // Await the async push
+            match sync.push_focus_session_with_status(&session, Some(&status)).await {
+                Ok(_) => println!("[Supabase] Session pushed successfully!"),
+                Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+            }
+            // Push app usage events for this session
+            let db_handle = mgr.db_handle();
+            if let Some(sid) = mgr.session_id().map(|id| id.into()) {
+                match db_handle.get_app_usage_events_for_session(sid) {
+                    Ok(events) => {
+                        if !events.is_empty() {
+                            match sync.push_app_usage_events(&events).await {
+                                Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
+                                Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("[Supabase] Failed to fetch app usage events: {}", e),
                 }
-            });
+            }
         }
         thread::sleep(Duration::from_millis(MAIN_LOOP_SLEEP_MS));
     }
@@ -96,13 +116,26 @@ fn main() {
             }
             if let Some(sync) = &supabase_sync {
                 let status = sync_status.clone();
-                let rt2 = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-                rt2.block_on(async move {
-                    match sync.push_focus_session_with_status(&session, Some(&status)).await {
-                        Ok(_) => println!("[Supabase] Session pushed successfully!"),
-                        Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+                // Await the async push
+                match sync.push_focus_session_with_status(&session, Some(&status)).await {
+                    Ok(_) => println!("[Supabase] Session pushed successfully!"),
+                    Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
+                }
+                // Push app usage events for this session
+                let db_handle = mgr.db_handle();
+                if let Some(sid) = mgr.session_id().map(|id| id.into()) {
+                    match db_handle.get_app_usage_events_for_session(sid) {
+                        Ok(events) => {
+                            if !events.is_empty() {
+                                match sync.push_app_usage_events(&events).await {
+                                    Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
+                                    Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                }
+                            }
+                        }
+                        Err(e) => eprintln!("[Supabase] Failed to fetch app usage events: {}", e),
                     }
-                });
+                }
             }
         }
         Ok(None) => {},

@@ -6,6 +6,8 @@ use crate::logger::log_event;
 use crate::db::DbHandle;
 use crate::error::SynapseError;
 use crate::types::SessionId;
+use crate::sync::SupabaseSync;
+use crate::types::AppUsageEvent;
 use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
 
@@ -69,11 +71,14 @@ pub struct SessionManager {
     last_app: Option<String>,
     /// The start time of the last app in focus.
     last_app_start: Option<std::time::SystemTime>,
+    /// The row ID of the last app usage event in the database.
+    last_app_event_id: Option<i64>,
+    supabase_sync: Option<SupabaseSync>,
 }
 
 impl SessionManager {
     /// Creates a new session manager with the given rules and database handle.
-    pub fn new(apprules: AppRules, db_handle: DbHandle) -> Self {
+    pub fn new(apprules: AppRules, db_handle: DbHandle, supabase_sync: Option<SupabaseSync>) -> Self {
         Self {
             apprules,
             current_session: None,
@@ -84,6 +89,8 @@ impl SessionManager {
             session_id: None,
             last_app: None,
             last_app_start: None,
+            last_app_event_id: None,
+            supabase_sync,
         }
     }
 
@@ -117,6 +124,8 @@ impl SessionManager {
     /// # Errors
     /// Returns `SynapseError` if updating the session fails.
     pub fn end_active_session(&mut self) -> Result<Option<FocusSession>, SynapseError> {
+        // Finalize last app usage event if any
+        self.finalize_last_app_usage_event()?;
         if let Some(mut session) = self.current_session.take() {
             println!("\n--- Focus session ended (graceful shutdown) ---");
             println!("Apps used: {:?}", session.work_apps());
@@ -206,23 +215,50 @@ impl SessionManager {
 
     fn update_app_focus_duration(&mut self, proc_name: &str) -> Result<(), SynapseError> {
         let now = SystemTime::now();
+        let now_secs = now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
         if let Some(last_app) = self.last_app.take() {
             if last_app != proc_name {
                 if let Some(start_time) = self.last_app_start.take() {
-                    let duration = now.duration_since(start_time)?.as_secs() as i64;
-                    log_event(
-                        Some(&self.db_handle),
-                        &last_app,
-                        false,
-                        None,
-                        self.session_id.map(|id| id.into()),
-                        Some(start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
-                        Some(now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
-                        Some(duration),
-                    )?;
+                    let start_time_secs = start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
+                    let end_time = now_secs;
+                    let duration = end_time - start_time_secs;
+                    // Only record if a focus session is active
+                    if self.current_session.is_some() {
+                        let is_blocked = self.apprules.is_blocked(&last_app);
+                        let status = if is_blocked { "blocked" } else { "allowed" };
+                        let session_id = self.session_id.map(|id| id.into());
+                        self.db_handle.insert_app_usage_event(
+                            &last_app,
+                            status,
+                            session_id,
+                            start_time_secs,
+                            end_time,
+                            duration,
+                        )?;
+                        // Immediately send to Supabase
+                        if let Some(sync) = &self.supabase_sync {
+                            let event = crate::types::AppUsageEvent {
+                                process_name: last_app.clone(),
+                                status: status.to_string(),
+                                session_id,
+                                start_time: start_time_secs,
+                                end_time,
+                                duration_secs: duration,
+                            };
+                            let sync = sync.clone();
+                            tokio::spawn(async move {
+                                let _ = sync.push_app_usage_events(&[event]).await;
+                            });
+                        }
+                    }
                 }
+            } else {
+                // Same app, just update tracking fields
+                self.last_app = Some(last_app);
+                return Ok(());
             }
         }
+        // Start tracking the new app in focus
         self.last_app = Some(proc_name.to_string());
         self.last_app_start = Some(now);
         Ok(())
@@ -230,15 +266,16 @@ impl SessionManager {
 
     fn log_app_event(&mut self, proc_name: &str, is_blocked: bool) -> Result<(), SynapseError> {
         let now = SystemTime::now();
+        let now_secs = now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
         log_event(
             Some(&self.db_handle),
             proc_name,
             is_blocked,
             Some(is_blocked),
             self.session_id.map(|id| id.into()),
-            Some(now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64),
-            None,
-            None,
+            Some(now_secs),
+            Some(now_secs),
+            Some(0),
         )?;
         self.last_checked_process = Some(proc_name.to_string());
         self.last_blocked = is_blocked;
@@ -291,6 +328,8 @@ impl SessionManager {
 
     fn check_and_end_session(&mut self, any_work_app_running: bool) -> Result<Option<FocusSession>, SynapseError> {
         if self.current_session.is_some() && !any_work_app_running {
+            // Finalize last app usage event if any
+            self.finalize_last_app_usage_event()?;
             if let Some(mut session) = self.current_session.take() {
                 println!("\n--- Focus session ended ---");
                 println!("Apps used: {:?}", session.work_apps());
@@ -307,6 +346,18 @@ impl SessionManager {
             }
         }
         Ok(None)
+    }
+
+    /// Finalizes the last app usage event by updating its end_time and duration_secs if needed.
+    fn finalize_last_app_usage_event(&mut self) -> Result<(), SynapseError> {
+        if let (Some(event_id), Some(start_time), Some(app)) = (self.last_app_event_id.take(), self.last_app_start.take(), self.last_app.take()) {
+            let now = SystemTime::now();
+            let end_time = now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
+            let start_time_secs = start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
+            let duration = end_time - start_time_secs;
+            self.db_handle.update_app_usage_event(event_id, end_time, duration)?;
+        }
+        Ok(())
     }
 }
 
@@ -395,7 +446,7 @@ mod tests {
             )",
             [],
         ).unwrap();
-        SessionManager::new(rules, db)
+        SessionManager::new(rules, db, None)
     }
 
     #[test]
@@ -408,6 +459,7 @@ mod tests {
         assert!(mgr.session_id.is_none());
         assert!(mgr.last_app.is_none());
         assert!(mgr.last_app_start.is_none());
+        assert!(mgr.last_app_event_id.is_none());
     }
 
     #[test]

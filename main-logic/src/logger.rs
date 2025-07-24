@@ -16,18 +16,17 @@ use crate::error::SynapseError;
 ///
 /// # Errors
 /// Returns `SynapseError` if logging to the database or file fails.
-pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, distraction: Option<bool>, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs() as i64;
-
+pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, _distraction: Option<bool>, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
+    // If duration_secs is Some(0), skip logging to the database
+    if let Some(0) = duration_secs {
+        return Ok(());
+    }
     // Log to SQLite if available
     if let Some(db) = db_handle {
+        let status = if blocked { "blocked" } else { "allowed" };
         db.log_event(
-            timestamp,
             process,
-            blocked,
-            distraction,
+            status,
             session_id,
             start_time,
             end_time,
@@ -37,7 +36,7 @@ pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, dis
 
     // Fallback: also log to file as before
     let status = if blocked { "BLOCKED" } else { "ALLOWED" };
-    let entry = format!("[{}] {} -> {}\n", timestamp, status, process);
+    let entry = format!("{} -> {}\n", status, process);
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)

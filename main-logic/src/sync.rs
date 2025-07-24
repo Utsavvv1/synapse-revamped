@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
 use crate::error::SupabaseError;
+use crate::types::AppUsageEvent;
 
 /// Supabase sync client module
 #[derive(Clone)]
@@ -42,6 +43,25 @@ impl SupabaseSync {
             .header("apikey", &self.api_key)
             .header("Content-Type", "application/json")
             .json(session)
+            .send()
+            .await?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            Err(SupabaseError::Api(format!("Supabase sync failed: {} - {}", status, body)))
+        }
+    }
+
+    pub async fn push_app_usage_events(&self, events: &[AppUsageEvent]) -> Result<(), SupabaseError> {
+        // Debug: print the events being sent
+        println!("[DEBUG] Sending app_usage_events to Supabase: {}", serde_json::to_string_pretty(&events).unwrap_or_else(|_| "<serialization error>".to_string()));
+        let url = format!("{}/app_usage_events", self.base_url.trim_end_matches('/'));
+        let resp = self.client.post(&url)
+            .header("apikey", &self.api_key)
+            .header("Content-Type", "application/json")
+            .json(events)
             .send()
             .await?;
         if resp.status().is_success() {
