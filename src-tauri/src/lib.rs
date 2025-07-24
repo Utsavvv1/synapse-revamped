@@ -1,3 +1,5 @@
+use main_logic; // Import the main-logic crate
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -9,6 +11,8 @@ pub fn run() {
             .build(),
         )?;
       }
+      // Example usage of main-logic crate
+      // main_logic::some_function();
       Ok(())
     })
     .run(tauri::generate_context!())
