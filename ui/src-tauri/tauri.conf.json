@@ -1,6 +1,6 @@
 {
   "$schema": "../ui/node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "ui1",
+  "productName": "Synapse",
   "version": "0.1.0",
   "identifier": "com.tauri.dev",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ui1",
+        "title": "Synapse",
         "width": 800,
         "height": 600,
         "resizable": true,
@@ -27,6 +27,7 @@
     "active": true,
     "targets": "all",
     "icon": [
+      "icons/S_logo.svg",
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
