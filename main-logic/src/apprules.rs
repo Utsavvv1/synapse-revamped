@@ -5,7 +5,6 @@ use std::path::Path;
 use serde::Deserialize;
 use serde_json;
 use crate::error::SynapseError;
-use crate::session::AppStatus;
 
 /// Structure for deserializing the application rules JSON file.
 #[derive(Debug, Deserialize, Clone)]
@@ -80,15 +79,6 @@ impl AppRules {
     /// Checks if a process name is in the blacklist.
     pub fn is_blocked(&self, process_name: &str) -> bool {
         self.blacklist.iter().any(|name| name.eq_ignore_ascii_case(process_name))
-    }
-
-    /// Returns the AppStatus (Blocked or Allowed) for a given process name.
-    pub fn get_app_status(&self, process_name: &str) -> AppStatus {
-        if self.is_blocked(process_name) {
-            AppStatus::Blocked
-        } else {
-            AppStatus::Allowed
-        }
     }
 
     /// Returns a reference to the whitelist.

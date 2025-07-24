@@ -3,6 +3,7 @@
 use std::io::Write;
 use crate::db::DbHandle;
 use crate::error::SynapseError;
+use uuid::Uuid;
 
 /// Logs an app usage event to the database (if available) and to the fallback log file.
 ///
@@ -16,18 +17,17 @@ use crate::error::SynapseError;
 ///
 /// # Errors
 /// Returns `SynapseError` if logging to the database or file fails.
-pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, distraction: Option<bool>, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs() as i64;
-
+pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, _distraction: Option<bool>, session_id: Option<Uuid>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
+    // If duration_secs is Some(0), skip logging to the database
+    if let Some(0) = duration_secs {
+        return Ok(());
+    }
     // Log to SQLite if available
     if let Some(db) = db_handle {
+        let status = if blocked { "blocked" } else { "allowed" };
         db.log_event(
-            timestamp,
             process,
-            blocked,
-            distraction,
+            status,
             session_id,
             start_time,
             end_time,
@@ -37,7 +37,7 @@ pub fn log_event(db_handle: Option<&DbHandle>, process: &str, blocked: bool, dis
 
     // Fallback: also log to file as before
     let status = if blocked { "BLOCKED" } else { "ALLOWED" };
-    let entry = format!("[{}] {} -> {}\n", timestamp, status, process);
+    let entry = format!("{} -> {}\n", status, process);
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -64,12 +64,25 @@ pub fn log_error(err: &SynapseError) {
     eprintln!("{}", entry);
 }
 
+pub fn log_error_with_context(context: &str, err: &crate::error::SynapseError) {
+    let entry = format!("[ERROR] {}: {}\n", context, err);
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("synapse.log")
+    {
+        let _ = file.write_all(entry.as_bytes());
+    }
+    eprintln!("{}", entry);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use crate::error::SynapseError;
     use crate::db::DbHandle;
+    use uuid::Uuid;
 
     #[test]
     fn log_error_writes_to_file_and_stderr() {
@@ -83,7 +96,7 @@ mod tests {
     #[test]
     fn log_event_writes_to_file() {
         let process = "test.exe";
-        let result = log_event(None, process, true, Some(true), Some(1), Some(100), Some(200), Some(100));
+        let result = log_event(None, process, true, Some(true), Some(Uuid::new_v4()), Some(100), Some(200), Some(100));
         assert!(result.is_ok());
         let contents = fs::read_to_string("synapse.log").unwrap();
         assert!(contents.contains(process));
@@ -96,11 +109,9 @@ mod tests {
         db.test_conn().execute(
             "CREATE TABLE IF NOT EXISTS app_usage_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp INTEGER NOT NULL,
                 process_name TEXT NOT NULL,
-                is_blocked BOOLEAN NOT NULL,
-                distraction BOOLEAN,
-                session_id INTEGER,
+                status TEXT NOT NULL,
+                session_id TEXT,
                 start_time INTEGER,
                 end_time INTEGER,
                 duration_secs INTEGER
@@ -108,10 +119,11 @@ mod tests {
             [],
         ).unwrap();
         let process = "test.exe";
-        let result = log_event(Some(&db), process, false, Some(false), Some(1), Some(100), Some(200), Some(100));
+        let uuid = Uuid::new_v4();
+        let result = log_event(Some(&db), process, false, Some(false), Some(uuid), Some(100), Some(200), Some(100));
         assert!(result.is_ok());
-        let mut stmt = db.test_conn().prepare("SELECT process_name FROM app_usage_events WHERE session_id = 1").unwrap();
-        let mut rows = stmt.query([]).unwrap();
+        let mut stmt = db.test_conn().prepare("SELECT process_name FROM app_usage_events WHERE session_id = ?").unwrap();
+        let mut rows = stmt.query([uuid.to_string()]).unwrap();
         let row = rows.next().unwrap().unwrap();
         let name: String = row.get(0).unwrap();
         assert_eq!(name, process);
@@ -122,7 +134,7 @@ mod tests {
         // Simulate file error by using an invalid path (readonly dir, etc.)
         // This is hard to do portably, so we just check that the function returns an error if file cannot be opened
         // For now, this is a placeholder for a more advanced test with a mock FS
-        // let result = log_event(None, "/invalid/path/test.exe", true, Some(true), Some(1), Some(100), Some(200), Some(100));
+        // let result = log_event(None, "/invalid/path/test.exe", true, Some(true), Some(Uuid::new_v4()), Some(1), Some(100), Some(200), Some(100));
         // assert!(result.is_err());
         // Skipped for portability
         assert!(true);

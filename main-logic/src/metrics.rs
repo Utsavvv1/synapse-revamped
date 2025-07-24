@@ -114,6 +114,7 @@ mod tests {
         let mut mgr = SessionManager::new(
             crate::apprules::AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec![]),
             crate::db::DbHandle::test_in_memory(),
+            None,
         );
         mgr.set_last_checked_process("notepad.exe".to_string());
         mgr.set_last_blocked(false);

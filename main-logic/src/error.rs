@@ -5,6 +5,23 @@ use rusqlite;
 use serde_json;
 use std::time::SystemTimeError;
 use thiserror::Error;
+use reqwest;
+
+#[derive(Error, Debug)]
+pub enum SupabaseError {
+    #[error("HTTP error: {0}")]
+    Http(#[from] reqwest::Error),
+    #[error("Serialization error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("Timeout occurred")]
+    Timeout,
+    #[error("Configuration error: {0}")]
+    Config(String),
+    #[error("API error: {0}")]
+    Api(String),
+    #[error("Other error: {0}")]
+    Other(String),
+}
 
 /// The main error type for the application, covering IO, DB, serialization, time, config, platform, and other errors.
 #[derive(Error, Debug)]
@@ -30,6 +47,8 @@ pub enum SynapseError {
     /// Other error
     #[error("Other error: {0}")]
     Other(String),
+    #[error("Supabase error: {0}")]
+    Supabase(#[from] SupabaseError),
 }
 
 #[cfg(test)]
@@ -39,6 +58,7 @@ mod tests {
     use rusqlite;
     use serde_json;
     use std::time::SystemTimeError;
+    use reqwest;
 
     #[test]
     fn test_io_error_variant() {
@@ -88,6 +108,44 @@ mod tests {
     fn test_other_error_variant() {
         let err = SynapseError::Other("other error".to_string());
         assert!(matches!(err, SynapseError::Other(_)));
+        assert!(format!("{}", err).contains("Other error"));
+    }
+
+    #[tokio::test]
+    async fn test_supabase_http_error_variant() {
+        // Generate a reqwest::Error by making an invalid request
+        let err = reqwest::get("http://nonexistent.invalid").await.err().unwrap();
+        let err = SupabaseError::Http(err);
+        assert!(format!("{}", err).contains("HTTP error"));
+    }
+
+    #[test]
+    fn test_supabase_serde_error_variant() {
+        let err = SupabaseError::Serde(serde_json::from_str::<u32>("not a number").unwrap_err());
+        assert!(format!("{}", err).contains("Serialization error"));
+    }
+
+    #[test]
+    fn test_supabase_timeout_error_variant() {
+        let err = SupabaseError::Timeout;
+        assert!(format!("{}", err).contains("Timeout occurred"));
+    }
+
+    #[test]
+    fn test_supabase_config_error_variant() {
+        let err = SupabaseError::Config("bad config".to_string());
+        assert!(format!("{}", err).contains("Configuration error"));
+    }
+
+    #[test]
+    fn test_supabase_api_error_variant() {
+        let err = SupabaseError::Api("api error".to_string());
+        assert!(format!("{}", err).contains("API error"));
+    }
+
+    #[test]
+    fn test_supabase_other_error_variant() {
+        let err = SupabaseError::Other("other error".to_string());
         assert!(format!("{}", err).contains("Other error"));
     }
 } 

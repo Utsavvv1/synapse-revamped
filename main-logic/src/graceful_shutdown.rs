@@ -34,7 +34,7 @@ mod tests {
     fn test_install_sets_shutdown_flag_and_cleans_up() {
         let rules = AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec![]);
         let db = DbHandle::test_in_memory();
-        let mgr = Arc::new(Mutex::new(SessionManager::new(rules, db)));
+        let mgr = Arc::new(Mutex::new(SessionManager::new(rules, db, None)));
         let shutdown_flag = Arc::new(AtomicBool::new(false));
         // We can't actually trigger Ctrl-C in a test, but we can call the handler logic directly
         // Simulate what the handler would do

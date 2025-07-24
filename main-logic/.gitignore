@@ -1,3 +1,4 @@
 /target/
 synapse.log
 synapse_metrics.db
+.env
