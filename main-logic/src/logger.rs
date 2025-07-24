@@ -107,10 +107,8 @@ mod tests {
         db.test_conn().execute(
             "CREATE TABLE IF NOT EXISTS app_usage_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp INTEGER NOT NULL,
                 process_name TEXT NOT NULL,
-                is_blocked BOOLEAN NOT NULL,
-                distraction BOOLEAN,
+                status TEXT NOT NULL,
                 session_id INTEGER,
                 start_time INTEGER,
                 end_time INTEGER,

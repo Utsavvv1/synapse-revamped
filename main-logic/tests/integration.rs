@@ -31,10 +31,8 @@ fn test_full_session_lifecycle_and_metrics() {
     db.test_conn().execute(
         "CREATE TABLE IF NOT EXISTS app_usage_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER NOT NULL,
             process_name TEXT NOT NULL,
-            is_blocked BOOLEAN NOT NULL,
-            distraction BOOLEAN,
+            status TEXT NOT NULL,
             session_id INTEGER,
             start_time INTEGER,
             end_time INTEGER,
@@ -42,7 +40,7 @@ fn test_full_session_lifecycle_and_metrics() {
         )",
         [],
     ).unwrap();
-    let mut mgr = SessionManager::new(rules.clone(), db);
+    let mut mgr = SessionManager::new(rules.clone(), db, None);
     let mut metrics = Metrics::new();
 
     // Simulate session start
