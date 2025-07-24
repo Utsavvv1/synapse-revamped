@@ -1,11 +1,11 @@
 import { Play, Edit3, AlertOctagon, BarChart3, Zap, Target } from "lucide-react"
-import SynapseHeader from "./components/Custom/SynapseHeader"
-import SynapseHero from "./components/Custom/SynapseHero"
-import SynapseActions from "./components/Custom/SynapseActions"
-import SynapseStatsGrid from "./components/Custom/SynapseStatsGrid"
-import SynapseFocusSessions from "./components/Custom/SynapseFocusSessions"
-import SynapseStatisticsButton from "./components/Custom/SynapseStatisticsButton"
-import SynapseDailyGoal from "./components/Custom/SynapseDailyGoal"
+import SynapseHeader from "../layouts/SynapseHeader"
+import SynapseHero from "./SynapseHero"
+import SynapseActions from "../components/SynapseActions";
+import SynapseStatsGrid from "./SynapseStatsGrid"
+import SynapseFocusSessions from "./SynapseFocusSessions"
+import SynapseStatisticsButton from "../components/SynapseStatisticsButton";
+import SynapseDailyGoal from "./SynapseDailyGoal"
 
 export default function SynapseApp() {
   const currentTime = new Date().toLocaleTimeString("en-US", {
