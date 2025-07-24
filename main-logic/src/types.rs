@@ -1,28 +1,28 @@
 //! Shared newtypes for strong typing across the codebase.
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 
-/// Type-safe wrapper for session IDs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SessionId(pub i64);
+pub struct SessionId(pub Uuid);
 
-impl From<i64> for SessionId {
-    fn from(id: i64) -> Self {
+impl From<Uuid> for SessionId {
+    fn from(id: Uuid) -> Self {
         SessionId(id)
     }
 }
 
-impl Into<i64> for SessionId {
-    fn into(self) -> i64 {
+impl Into<Uuid> for SessionId {
+    fn into(self) -> Uuid {
         self.0
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AppUsageEvent {
+    pub id: Uuid,
     pub process_name: String,
     pub status: String, // "allowed" or "blocked"
-    pub session_id: Option<i64>,
+    pub session_id: Option<Uuid>,
     pub start_time: i64,
     pub end_time: i64,
     pub duration_secs: i64,

@@ -157,6 +157,69 @@ impl SupabaseSync {
             Err(SupabaseError::Api(format!("Supabase pull failed: {} - {}", status, body)))
         }
     }
+
+    /// Insert a new focus session with end_time = null (session start)
+    pub async fn insert_focus_session(&self, session: &FocusSession) -> Result<(), SupabaseError> {
+        let url = format!("{}/focus_sessions", self.base_url.trim_end_matches('/'));
+        let mut session_clone = session.clone();
+        session_clone.end_time = None;
+        let payload = serde_json::to_string(&session_clone).unwrap();
+        println!("[Supabase][insert_focus_session] URL: {}", url);
+        println!("[Supabase][insert_focus_session] Payload: {}", payload);
+        let resp = self.client.post(&url)
+            .header("apikey", &self.api_key)
+            .header("Content-Type", "application/json")
+            .body(payload.clone())
+            .send()
+            .await?;
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        println!("[Supabase][insert_focus_session] Response status: {}", status);
+        println!("[Supabase][insert_focus_session] Response body: {}", body);
+        if status.is_success() {
+            println!("[Supabase][insert_focus_session] Insert successful");
+            Ok(())
+        } else {
+            println!("[Supabase][insert_focus_session] Insert failed");
+            Err(SupabaseError::Api(format!("Supabase insert failed: {} - {}", status, body)))
+        }
+    }
+
+    /// Update an existing focus session with end_time and final data (session end)
+    pub async fn update_focus_session(&self, session: &FocusSession) -> Result<(), SupabaseError> {
+        println!("[Supabase][update_focus_session][DEBUG] Session struct: {:?}", session);
+        let url = format!("{}/focus_sessions?id=eq.{}", self.base_url.trim_end_matches('/'), session.id);
+        let end_time_val = session.end_time.map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs());
+        println!("[Supabase][update_focus_session][DEBUG] end_time (as Option<u64>): {:?}", end_time_val);
+        let patch = serde_json::json!({
+            "end_time": end_time_val,
+            "work_apps": session.work_apps,
+            "distraction_attempts": session.distraction_attempts,
+        });
+        println!("[Supabase][update_focus_session][DEBUG] Patch object: {}", patch);
+        let payload = serde_json::to_string(&patch).unwrap();
+        println!("[Supabase][update_focus_session] URL: {}", url);
+        println!("[Supabase][update_focus_session] Payload: {}", payload);
+        let resp = self.client.patch(&url)
+            .header("apikey", &self.api_key)
+            .header("Content-Type", "application/json")
+            .body(payload.clone())
+            .send()
+            .await?;
+        let status = resp.status();
+        let headers = format!("{:?}", resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        println!("[Supabase][update_focus_session] Response status: {}", status);
+        println!("[Supabase][update_focus_session] Response headers: {}", headers);
+        println!("[Supabase][update_focus_session] Response body: {}", body);
+        if status.is_success() {
+            println!("[Supabase][update_focus_session] Update successful");
+            Ok(())
+        } else {
+            println!("[Supabase][update_focus_session] Update failed");
+            Err(SupabaseError::Api(format!("Supabase update failed: {} - {}", status, body)))
+        }
+    }
 }
 
 /// Merge local and remote sessions using last-write-wins on start_time.

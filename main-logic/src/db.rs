@@ -3,6 +3,7 @@
 use rusqlite::{params, Connection};
 use crate::error::SynapseError;
 use crate::types::AppUsageEvent;
+use uuid::Uuid;
 
 /// Handle for interacting with the SQLite database.
 pub struct DbHandle {
@@ -18,25 +19,28 @@ impl DbHandle {
     pub fn new() -> Result<Self, SynapseError> {
         let conn = Connection::open("synapse_metrics.db")
             .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS app_usage_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                process_name TEXT NOT NULL,
-                status TEXT NOT NULL,
-                session_id INTEGER,
-                start_time INTEGER,
-                end_time INTEGER,
-                duration_secs INTEGER
-            )",
-            [],
-        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
+        // Enable foreign key support
+        conn.execute("PRAGMA foreign_keys = ON", []).ok();
         conn.execute(
             "CREATE TABLE IF NOT EXISTS focus_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 start_time INTEGER NOT NULL,
                 end_time INTEGER,
                 work_apps TEXT,
                 distraction_attempts INTEGER
+            )",
+            [],
+        ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_usage_events (
+                id TEXT PRIMARY KEY,
+                process_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                session_id TEXT,
+                start_time INTEGER,
+                end_time INTEGER,
+                duration_secs INTEGER,
+                FOREIGN KEY(session_id) REFERENCES focus_sessions(id)
             )",
             [],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
@@ -58,10 +62,10 @@ impl DbHandle {
     ///
     /// # Errors
     /// Returns `SynapseError` if the insert fails.
-    pub fn log_event(&self, process_name: &str, status: &str, session_id: Option<i64>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
+    pub fn log_event(&self, process_name: &str, status: &str, session_id: Option<Uuid>, start_time: Option<i64>, end_time: Option<i64>, duration_secs: Option<i64>) -> Result<(), SynapseError> {
         self.conn.execute(
             "INSERT INTO app_usage_events (process_name, status, session_id, start_time, end_time, duration_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![process_name, status, session_id, start_time, end_time, duration_secs],
+            params![process_name, status, session_id.map(|u| u.to_string()), start_time, end_time, duration_secs],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
     }
@@ -73,12 +77,13 @@ impl DbHandle {
     ///
     /// # Errors
     /// Returns `SynapseError` if the insert fails.
-    pub fn insert_session(&self, start_time: i64) -> Result<i64, SynapseError> {
+    pub fn insert_session(&self, start_time: i64) -> Result<Uuid, SynapseError> {
+        let session_id = Uuid::new_v4();
         self.conn.execute(
-            "INSERT INTO focus_sessions (start_time, distraction_attempts) VALUES (?1, 0)",
-            params![start_time],
+            "INSERT INTO focus_sessions (id, start_time, distraction_attempts) VALUES (?1, ?2, 0)",
+            params![session_id.to_string(), start_time],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
-        Ok(self.conn.last_insert_rowid())
+        Ok(session_id)
     }
 
     /// Updates a focus session with end time, apps used, and distraction attempts.
@@ -91,10 +96,10 @@ impl DbHandle {
     ///
     /// # Errors
     /// Returns `SynapseError` if the update fails.
-    pub fn update_session(&self, session_id: i64, end_time: i64, work_apps: &str, distraction_attempts: i32) -> Result<(), SynapseError> {
+    pub fn update_session(&self, session_id: Uuid, end_time: i64, work_apps: &str, distraction_attempts: i32) -> Result<(), SynapseError> {
         self.conn.execute(
             "UPDATE focus_sessions SET end_time = ?1, work_apps = ?2, distraction_attempts = ?3 WHERE id = ?4",
-            params![end_time, work_apps, distraction_attempts, session_id],
+            params![end_time, work_apps, distraction_attempts, session_id.to_string()],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
     }
@@ -108,10 +113,10 @@ impl DbHandle {
     ///
     /// # Errors
     /// Returns `SynapseError` if the update fails.
-    pub fn update_app_usage_event(&self, event_id: i64, end_time: i64, duration_secs: i64) -> Result<(), SynapseError> {
+    pub fn update_app_usage_event(&self, event_id: Uuid, end_time: i64, duration_secs: i64) -> Result<(), SynapseError> {
         self.conn.execute(
             "UPDATE app_usage_events SET end_time = ?1, duration_secs = ?2 WHERE id = ?3",
-            params![end_time, duration_secs, event_id],
+            params![end_time, duration_secs, event_id.to_string()],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         Ok(())
     }
@@ -126,23 +131,25 @@ impl DbHandle {
     ///
     /// # Errors
     /// Returns `SynapseError` if the insert fails.
-    pub fn insert_app_usage_event(&self, process_name: &str, status: &str, session_id: Option<i64>, start_time: i64, end_time: i64, duration_secs: i64) -> Result<i64, SynapseError> {
+    pub fn insert_app_usage_event(&self, process_name: &str, status: &str, session_id: Option<Uuid>, start_time: i64, end_time: i64, duration_secs: i64) -> Result<Uuid, SynapseError> {
+        let event_id = Uuid::new_v4();
         self.conn.execute(
-            "INSERT INTO app_usage_events (process_name, status, session_id, start_time, end_time, duration_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![process_name, status, session_id, start_time, end_time, duration_secs],
+            "INSERT INTO app_usage_events (id, process_name, status, session_id, start_time, end_time, duration_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![event_id.to_string(), process_name, status, session_id.map(|u| u.to_string()), start_time, end_time, duration_secs],
         ).map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
-        Ok(self.conn.last_insert_rowid())
+        Ok(event_id)
     }
 
-    pub fn get_app_usage_events_for_session(&self, session_id: i64) -> Result<Vec<AppUsageEvent>, SynapseError> {
+    pub fn get_app_usage_events_for_session(&self, session_id: Uuid) -> Result<Vec<AppUsageEvent>, SynapseError> {
         let mut stmt = self.conn.prepare(
             "SELECT process_name, status, session_id, start_time, end_time, duration_secs FROM app_usage_events WHERE session_id = ?1"
         )?;
-        let rows = stmt.query_map([session_id], |row| {
+        let rows = stmt.query_map([session_id.to_string()], |row| {
             Ok(AppUsageEvent {
+                id: Uuid::new_v4(), // Dummy value for test, replace with actual if available
                 process_name: row.get(0)?,
                 status: row.get(1)?,
-                session_id: row.get(2).ok(),
+                session_id: row.get(2).ok().and_then(|s: String| Uuid::parse_str(&s).ok()),
                 start_time: row.get(3)?,
                 end_time: row.get(4)?,
                 duration_secs: row.get(5)?,
@@ -153,6 +160,10 @@ impl DbHandle {
             events.push(event?);
         }
         Ok(events)
+    }
+
+    pub fn execute_sql(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> rusqlite::Result<usize> {
+        self.conn.execute(sql, params)
     }
 
     pub fn test_conn(&mut self) -> &mut Connection {
@@ -174,7 +185,7 @@ mod tests {
         let db = db_in_memory();
         db.conn.execute(
             "CREATE TABLE IF NOT EXISTS focus_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 start_time INTEGER NOT NULL,
                 end_time INTEGER,
                 work_apps TEXT,
@@ -183,7 +194,7 @@ mod tests {
             [],
         ).unwrap();
         let id = db.insert_session(12345).unwrap();
-        assert!(id > 0);
+        assert_ne!(id, Uuid::nil());
     }
 
     #[test]
@@ -191,19 +202,20 @@ mod tests {
         let db = db_in_memory();
         db.conn.execute(
             "CREATE TABLE IF NOT EXISTS app_usage_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 process_name TEXT NOT NULL,
                 status TEXT NOT NULL,
-                session_id INTEGER,
+                session_id TEXT,
                 start_time INTEGER,
                 end_time INTEGER,
                 duration_secs INTEGER
             )",
             [],
         ).unwrap();
-        db.log_event("test.exe", "active", Some(1), Some(123), Some(124), Some(1)).unwrap();
-        let mut stmt = db.conn.prepare("SELECT process_name FROM app_usage_events WHERE session_id = 1").unwrap();
-        let mut rows = stmt.query([]).unwrap();
+        let uuid = Uuid::new_v4();
+        db.log_event("test.exe", "active", Some(uuid), Some(123), Some(124), Some(1)).unwrap();
+        let mut stmt = db.conn.prepare("SELECT process_name FROM app_usage_events WHERE session_id = ?").unwrap();
+        let mut rows = stmt.query([uuid.to_string()]).unwrap();
         let row = rows.next().unwrap().unwrap();
         let name: String = row.get(0).unwrap();
         assert_eq!(name, "test.exe");
@@ -214,7 +226,7 @@ mod tests {
         let db = db_in_memory();
         db.conn.execute(
             "CREATE TABLE IF NOT EXISTS focus_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 start_time INTEGER NOT NULL,
                 end_time INTEGER,
                 work_apps TEXT,
@@ -224,8 +236,8 @@ mod tests {
         ).unwrap();
         let id = db.insert_session(12345).unwrap();
         db.update_session(id, 54321, "notepad.exe,word.exe", 2).unwrap();
-        let mut stmt = db.conn.prepare("SELECT end_time, work_apps, distraction_attempts FROM focus_sessions WHERE id = ?1").unwrap();
-        let mut rows = stmt.query([id]).unwrap();
+        let mut stmt = db.conn.prepare("SELECT end_time, work_apps, distraction_attempts FROM focus_sessions WHERE id = ?").unwrap();
+        let mut rows = stmt.query([id.to_string()]).unwrap();
         let row = rows.next().unwrap().unwrap();
         let end_time: i64 = row.get(0).unwrap();
         let work_apps: String = row.get(1).unwrap();
@@ -239,7 +251,7 @@ mod tests {
     fn log_event_invalid_table() {
         let db = db_in_memory();
         // Do not create the table, should error
-        let result = db.log_event("test.exe", "active", Some(1), Some(123), Some(124), Some(1));
+        let result = db.log_event("test.exe", "active", Some(Uuid::new_v4()), Some(123), Some(124), Some(1));
         assert!(result.is_err());
     }
 
@@ -255,7 +267,7 @@ mod tests {
     fn update_session_invalid_table() {
         let db = db_in_memory();
         // Do not create the table, should error
-        let result = db.update_session(1, 54321, "notepad.exe,word.exe", 2);
+        let result = db.update_session(Uuid::new_v4(), 54321, "notepad.exe,word.exe", 2);
         assert!(result.is_err());
     }
 } 

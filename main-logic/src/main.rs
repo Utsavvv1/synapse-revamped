@@ -49,6 +49,7 @@ async fn main() {
     // Set up a Tokio runtime for async tasks
     // let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime"); // This line is removed as per edit hint
 
+    println!("Constructing SessionManager with supabase_sync: {}", supabase_sync.is_some());
     let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
@@ -84,13 +85,11 @@ async fn main() {
             let status = sync_status.clone();
             let sync = sync.clone();
             // Await the async push
-            match sync.push_focus_session_with_status(&session, Some(&status)).await {
-                Ok(_) => println!("[Supabase] Session pushed successfully!"),
-                Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
-            }
-            // Push app usage events for this session
+            // REMOVE: push_focus_session_with_status at session end
+            // Only update app usage events here
+            // Push app usage events for this 
             let db_handle = mgr.db_handle();
-            if let Some(sid) = mgr.session_id().map(|id| id.into()) {
+            if let Some(sid) = mgr.session_id().map(|id| id.0) {
                 match db_handle.get_app_usage_events_for_session(sid) {
                     Ok(events) => {
                         if !events.is_empty() {
@@ -103,11 +102,18 @@ async fn main() {
                     Err(e) => eprintln!("[Supabase] Failed to fetch app usage events: {}", e),
                 }
             }
+            // --- NEW: Always update session in Supabase when it ends ---
+            let sync = sync.clone();
+            let session_clone = session.clone();
+            tokio::spawn(async move {
+                let _ = sync.update_focus_session(&session_clone).await;
+            });
         }
         thread::sleep(Duration::from_millis(MAIN_LOOP_SLEEP_MS));
     }
     // After loop: ensure session is ended and logged
     let mut mgr = session_mgr.lock().unwrap();
+    println!("[Main] Calling end_active_session");
     match mgr.end_active_session() {
         Ok(Some(session)) => {
             match serde_json::to_string_pretty(&session) {
@@ -115,15 +121,12 @@ async fn main() {
                 Err(e) => eprintln!("[DEBUG] Failed to serialize session: {}", e),
             }
             if let Some(sync) = &supabase_sync {
+                // REMOVE: push_focus_session_with_status at session end
+                // Only update app usage events here
                 let status = sync_status.clone();
-                // Await the async push
-                match sync.push_focus_session_with_status(&session, Some(&status)).await {
-                    Ok(_) => println!("[Supabase] Session pushed successfully!"),
-                    Err(e) => eprintln!("[Supabase] Sync failed: {}", e),
-                }
                 // Push app usage events for this session
                 let db_handle = mgr.db_handle();
-                if let Some(sid) = mgr.session_id().map(|id| id.into()) {
+                if let Some(sid) = mgr.session_id().map(|id| id.0) {
                     match db_handle.get_app_usage_events_for_session(sid) {
                         Ok(events) => {
                             if !events.is_empty() {

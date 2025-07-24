@@ -10,26 +10,29 @@ use crate::sync::SupabaseSync;
 use crate::types::AppUsageEvent;
 use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 
 /// Represents a single focus session, including timing, apps used, and distraction attempts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FocusSession {
+    pub id: Uuid, // Add this line
     /// Session start time.
     #[serde(with = "crate::session::serde_system_time")]
-    start_time: SystemTime,
+    pub start_time: SystemTime,
     /// Session end time (if ended).
     #[serde(with = "crate::session::serde_option_system_time")]
-    end_time: Option<SystemTime>,
+    pub end_time: Option<SystemTime>,
     /// List of work apps used during the session.
-    work_apps: Vec<String>,
+    pub work_apps: Vec<String>,
     /// Number of distraction attempts during the session.
-    distraction_attempts: u32,
+    pub distraction_attempts: u32,
 }
 
 impl FocusSession {
     /// Creates a new `FocusSession`.
     pub fn new(start_time: SystemTime, work_apps: Vec<String>) -> Self {
         Self {
+            id: Uuid::new_v4(), // Generate a new uuid
             start_time,
             end_time: None,
             work_apps,
@@ -72,7 +75,7 @@ pub struct SessionManager {
     /// The start time of the last app in focus.
     last_app_start: Option<std::time::SystemTime>,
     /// The row ID of the last app usage event in the database.
-    last_app_event_id: Option<i64>,
+    last_app_event_id: Option<Uuid>,
     supabase_sync: Option<SupabaseSync>,
 }
 
@@ -124,6 +127,7 @@ impl SessionManager {
     /// # Errors
     /// Returns `SynapseError` if updating the session fails.
     pub fn end_active_session(&mut self) -> Result<Option<FocusSession>, SynapseError> {
+        println!("[SessionManager] end_active_session: supabase_sync is_some: {}", self.supabase_sync.is_some());
         // Finalize last app usage event if any
         self.finalize_last_app_usage_event()?;
         if let Some(mut session) = self.current_session.take() {
@@ -133,10 +137,29 @@ impl SessionManager {
             session.end_time = Some(now);
             if let Some(session_id) = self.session_id.take() {
                 let end_time = now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64;
-                let work_apps_str = session.work_apps().join(",");
-                let distraction_attempts = session.distraction_attempts() as i32;
-                self.db_handle.update_session(session_id.into(), end_time, &work_apps_str, distraction_attempts)
-                    .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
+                let work_apps_str = session.work_apps.join(",");
+                let distraction_attempts = session.distraction_attempts as i32;
+                self.db_handle.execute_sql(
+                    "UPDATE focus_sessions SET end_time = ?1, work_apps = ?2, distraction_attempts = ?3 WHERE id = ?4",
+                    &[
+                        &end_time.to_string(),
+                        &work_apps_str,
+                        &distraction_attempts.to_string(),
+                        &session_id.0.to_string(),
+                    ],
+                )?;
+            }
+            // Supabase: update session at end
+            println!("[Supabase][update_focus_session] supabase_sync is_some: {}", self.supabase_sync.is_some());
+            if let Some(sync) = &self.supabase_sync {
+                let session_clone = session.clone();
+                let sync = sync.clone();
+                println!("[Supabase][update_focus_session] About to update session in Supabase...");
+                let handle = std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let _ = rt.block_on(sync.update_focus_session(&session_clone));
+                });
+                let _ = handle.join(); // Wait for thread to finish so logs are printed
             }
             Ok(Some(session))
         } else {
@@ -162,8 +185,8 @@ impl SessionManager {
         &self.db_handle
     }
     /// Returns the current session ID, if any.
-    pub fn session_id(&self) -> Option<SessionId> {
-        self.session_id
+    pub fn session_id(&self) -> Option<&SessionId> {
+        self.session_id.as_ref()
     }
     /// Returns a mutable reference to the current focus session, if any.
     pub fn current_session_mut(&mut self) -> Option<&mut FocusSession> {
@@ -223,11 +246,11 @@ impl SessionManager {
                     let end_time = now_secs;
                     let duration = end_time - start_time_secs;
                     // Only record if a focus session is active
-                    if self.current_session.is_some() {
+                    if let Some(ref session) = self.current_session {
                         let is_blocked = self.apprules.is_blocked(&last_app);
                         let status = if is_blocked { "blocked" } else { "allowed" };
-                        let session_id = self.session_id.map(|id| id.into());
-                        self.db_handle.insert_app_usage_event(
+                        let session_id = Some(session.id);
+                        let event_id = self.db_handle.insert_app_usage_event(
                             &last_app,
                             status,
                             session_id,
@@ -235,9 +258,11 @@ impl SessionManager {
                             end_time,
                             duration,
                         )?;
+                        self.last_app_event_id = Some(event_id);
                         // Immediately send to Supabase
                         if let Some(sync) = &self.supabase_sync {
                             let event = crate::types::AppUsageEvent {
+                                id: Uuid::new_v4(),
                                 process_name: last_app.clone(),
                                 status: status.to_string(),
                                 session_id,
@@ -272,7 +297,7 @@ impl SessionManager {
             proc_name,
             is_blocked,
             Some(is_blocked),
-            self.session_id.map(|id| id.into()),
+            self.current_session.as_ref().map(|s| s.id),
             Some(now_secs),
             Some(now_secs),
             Some(0),
@@ -304,13 +329,30 @@ impl SessionManager {
             println!("\n--- Focus session started ---");
             let work_apps: Vec<String> = running_processes.iter().filter(|name| self.apprules.is_work_app(name)).cloned().collect();
             let session = FocusSession {
+                id: Uuid::new_v4(),
                 start_time: SystemTime::now(),
                 end_time: None,
                 work_apps: work_apps.clone(),
                 distraction_attempts: 0,
             };
-            let session_id = self.db_handle.insert_session(session.start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs() as i64)?;
-            self.session_id = Some(SessionId::from(session_id));
+            self.db_handle.execute_sql(
+                "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, NULL, ?3, ?4)",
+                &[
+                    &session.id.to_string(),
+                    &session.start_time.duration_since(SystemTime::UNIX_EPOCH)?.as_secs().to_string(),
+                    &work_apps.join(","),
+                    &session.distraction_attempts.to_string(),
+                ],
+            )?;
+            // Supabase: insert session at start
+            if let Some(sync) = &self.supabase_sync {
+                let session_clone = session.clone();
+                let sync = sync.clone();
+                tokio::spawn(async move {
+                    let _ = sync.insert_focus_session(&session_clone).await;
+                });
+            }
+            self.session_id = Some(SessionId::from(session.id));
             self.current_session = Some(session);
         }
         Ok(())
@@ -468,12 +510,13 @@ mod tests {
         // Simulate starting a session
         let now = SystemTime::now();
         mgr.current_session = Some(FocusSession {
+            id: Uuid::new_v4(), // Generate a new uuid for the new session
             start_time: now,
             end_time: None,
             work_apps: vec!["notepad.exe".to_string()],
             distraction_attempts: 0,
         });
-        mgr.session_id = Some(SessionId::from(1));
+        mgr.session_id = Some(SessionId::from(mgr.current_session.as_ref().unwrap().id));
         assert!(mgr.current_session.is_some());
         // End session
         mgr.end_active_session().unwrap();
@@ -486,6 +529,7 @@ mod tests {
         let mut mgr = setup_manager();
         let now = SystemTime::now();
         mgr.current_session = Some(FocusSession {
+            id: Uuid::new_v4(), // Generate a new uuid for the new session
             start_time: now,
             end_time: None,
             work_apps: vec!["notepad.exe".to_string()],
@@ -508,6 +552,7 @@ mod tests {
     fn test_focus_session_clone_and_debug() {
         let now = SystemTime::now();
         let session = FocusSession {
+            id: Uuid::new_v4(), // Generate a new uuid for the new session
             start_time: now,
             end_time: Some(now + Duration::from_secs(3600)),
             work_apps: vec!["notepad.exe".to_string(), "word.exe".to_string()],

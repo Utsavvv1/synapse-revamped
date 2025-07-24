@@ -9,6 +9,7 @@ use main_logic::sync::{SupabaseSync, SharedSyncStatus, SyncStatus};
 use std::sync::Arc;
 use std::sync::Mutex;
 use main_logic::sync::merge_sessions;
+use main_logic::SessionId;
 
 #[test]
 fn test_full_session_lifecycle_and_metrics() {
@@ -20,7 +21,7 @@ fn test_full_session_lifecycle_and_metrics() {
     let mut db = DbHandle::test_in_memory();
     db.test_conn().execute(
         "CREATE TABLE IF NOT EXISTS focus_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             start_time INTEGER NOT NULL,
             end_time INTEGER,
             work_apps TEXT,
@@ -30,29 +31,45 @@ fn test_full_session_lifecycle_and_metrics() {
     ).unwrap();
     db.test_conn().execute(
         "CREATE TABLE IF NOT EXISTS app_usage_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             process_name TEXT NOT NULL,
             status TEXT NOT NULL,
-            session_id INTEGER,
+            session_id TEXT,
             start_time INTEGER,
             end_time INTEGER,
-            duration_secs INTEGER
+            duration_secs INTEGER,
+            FOREIGN KEY(session_id) REFERENCES focus_sessions(id)
         )",
         [],
     ).unwrap();
     let mut mgr = SessionManager::new(rules.clone(), db, None);
-    let mut metrics = Metrics::new();
 
     // Simulate session start
     let now = SystemTime::now();
-    mgr.set_current_session(FocusSession::new(now, vec!["notepad.exe".to_string()]));
-    mgr.set_session_id(1.into());
+    let session = FocusSession::new(now, vec!["notepad.exe".to_string()]);
+    let session_id = session.id;
+    mgr.set_current_session(session);
+    mgr.set_session_id(SessionId::from(session_id));
+    // Insert session row into DB
+    {
+        let db_handle = mgr.db_handle();
+        db_handle.execute_sql(
+            "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, NULL, ?3, ?4)",
+            &[&session_id.to_string(),
+              &now.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs().to_string(),
+              &"notepad.exe".to_string(),
+              &0.to_string(),
+            ],
+        ).unwrap();
+    }
     assert!(mgr.current_session().is_some());
+
+    let mut metrics = Metrics::new();
 
     // Simulate app usage and logging
     let process = "notepad.exe";
-    let log_result = log_event(Some(mgr.db_handle()), process, false, Some(false), mgr.session_id().map(Into::into), Some(100), Some(200), Some(100));
-    assert!(log_result.is_ok());
+    let log_result = log_event(Some(mgr.db_handle()), process, false, Some(false), Some(session_id), Some(100), Some(200), Some(100));
+    assert!(log_result.is_ok(), "log_event error: {:?}", log_result);
     metrics.update(process, false);
     metrics.update("chrome.exe", true);
     assert_eq!(metrics.total_checks, 2);
@@ -65,6 +82,14 @@ fn test_full_session_lifecycle_and_metrics() {
     assert_eq!(mgr.current_session().unwrap().distraction_attempts(), 1);
 
     // End session
+    let end_time = now.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 1000;
+    {
+        let db_handle = mgr.db_handle();
+        db_handle.execute_sql(
+            "UPDATE focus_sessions SET end_time = ?1 WHERE id = ?2",
+            &[&end_time.to_string(), &session_id.to_string()],
+        ).unwrap();
+    }
     mgr.end_active_session().unwrap();
     assert!(mgr.current_session().is_none());
     assert!(mgr.session_id().is_none());
