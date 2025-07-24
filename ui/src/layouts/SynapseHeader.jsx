@@ -1,7 +1,7 @@
 import React from "react"
 import { Zap } from "lucide-react"
 
-export default function SynapseHeader({ currentTime }) {
+export default function   SynapseHeader({ currentTime }) {
   return (
     <header className="flex justify-between items-center mb-4 lg:mb-6">
       <h1 className="font-dmserif tracking-tightest italic text-synapse-dark text-xl sm:text-2xl lg:text-3xl font-light">

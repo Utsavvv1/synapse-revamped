@@ -20,7 +20,7 @@ export default function SynapseApp() {
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url('/images/rice-terraces-bg.jpg')`,
+          backgroundImage: `var(--synapse-bg-image)`,
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/25 to-black/35" />
