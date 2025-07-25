@@ -16,6 +16,7 @@ pub mod session;
 pub mod types;
 pub mod constants;
 pub mod sync;
+pub mod api;
 
 // Re-export key types for a cleaner public API.
 pub use apprules::AppRules;

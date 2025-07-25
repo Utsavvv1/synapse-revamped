@@ -8,7 +8,7 @@ use uuid::Uuid;
 /// Handle for interacting with the SQLite database.
 pub struct DbHandle {
     /// The underlying SQLite connection.
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 impl DbHandle {
@@ -168,6 +168,15 @@ impl DbHandle {
 
     pub fn test_conn(&mut self) -> &mut Connection {
         &mut self.conn
+    }
+}
+
+pub trait DbConn {
+    fn conn(&self) -> &rusqlite::Connection;
+}
+impl DbConn for DbHandle {
+    fn conn(&self) -> &rusqlite::Connection {
+        &self.conn
     }
 }
 

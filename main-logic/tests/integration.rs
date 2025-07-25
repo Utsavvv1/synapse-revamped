@@ -212,4 +212,121 @@ async fn test_supabase_merge_sessions() {
     for (i, session) in merged.iter().enumerate() {
         println!("Session {}: {:?}", i + 1, session);
     }
+}
+
+#[test]
+fn test_api_today_vs_past_entries() {
+    use main_logic::{db::DbHandle, api};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let mut db = DbHandle::test_in_memory();
+    db.test_conn().execute(
+        "CREATE TABLE IF NOT EXISTS focus_sessions (
+            id TEXT PRIMARY KEY,
+            start_time INTEGER NOT NULL,
+            end_time INTEGER,
+            work_apps TEXT,
+            distraction_attempts INTEGER
+        )",
+        [],
+    ).unwrap();
+    db.test_conn().execute(
+        "CREATE TABLE IF NOT EXISTS app_usage_events (
+            id TEXT PRIMARY KEY,
+            process_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            session_id TEXT,
+            start_time INTEGER,
+            end_time INTEGER,
+            duration_secs INTEGER,
+            FOREIGN KEY(session_id) REFERENCES focus_sessions(id)
+        )",
+        [],
+    ).unwrap();
+
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let one_day = 86400;
+    let today_start = now / one_day * one_day;
+    let today_end = today_start + one_day;
+    let yesterday = today_start - one_day;
+    let tomorrow = today_end + one_day;
+
+    // Edge: session starts exactly at today's midnight
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-midnight", today_start, today_start + 100, "midnight.exe", 1],
+    ).unwrap();
+    // Edge: session starts just before today's midnight (should NOT count)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-before-midnight", today_start - 1, today_start + 100, "before.exe", 2],
+    ).unwrap();
+    // Edge: session starts just after today's midnight
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-after-midnight", today_start + 1, today_start + 200, "after.exe", 3],
+    ).unwrap();
+    // Normal: session in the middle of today
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-today", today_start + 3600, today_start + 7200, "notepad.exe", 4],
+    ).unwrap();
+    // Edge: session starts today, ends tomorrow
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-crosses-tomorrow", today_end - 10, tomorrow + 100, "cross.exe", 5],
+    ).unwrap();
+    // Edge: session starts before today, ends today (should NOT count)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-starts-before", yesterday + one_day - 1, today_start + 10, "before2.exe", 6],
+    ).unwrap();
+    // Edge: session ongoing (no end_time)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, NULL, ?3, ?4)",
+        rusqlite::params!["id-ongoing", today_start + 8000, "ongoing.exe", 7],
+    ).unwrap();
+    // Edge: session with zero duration
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-zero-duration", today_start + 9000, today_start + 9000, "zero.exe", 8],
+    ).unwrap();
+    // Edge: session with negative distraction_attempts (should still sum)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-negative-distraction", today_start + 9500, today_start + 9600, "neg.exe", -2],
+    ).unwrap();
+    // Past: session from yesterday (should NOT count)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-yesterday", yesterday + 100, yesterday + 200, "word.exe", 2],
+    ).unwrap();
+    // Future: session from tomorrow (should NOT count)
+    db.test_conn().execute(
+        "INSERT INTO focus_sessions (id, start_time, end_time, work_apps, distraction_attempts) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params!["id-tomorrow", tomorrow + 100, tomorrow + 200, "future.exe", 1],
+    ).unwrap();
+
+    // Calculate expected values
+    // Only sessions starting in [today_start, today_end) should count
+    // These are: id-midnight, id-after-midnight, id-today, id-crosses-tomorrow, id-ongoing, id-zero-duration, id-negative-distraction
+    let expected_count = 7;
+    let expected_distractions = 1 + 3 + 4 + 5 + 7 + 8 + (-2); // sum of distraction_attempts for those
+    let expected_focus_time =
+        (today_start + 100 - today_start) + // id-midnight
+        (today_start + 200 - (today_start + 1)) + // id-after-midnight
+        (today_start + 7200 - (today_start + 3600)) + // id-today
+        (tomorrow + 100 - (today_end - 10)) + // id-crosses-tomorrow
+        (0) + // id-ongoing (no end_time, will use now, but for test, treat as 0)
+        (0) + // id-zero-duration
+        (today_start + 9600 - (today_start + 9500)); // id-negative-distraction
+
+    let focus_time = api::total_focus_time_today(&db).unwrap();
+    let distractions = api::total_distractions_today(&db).unwrap();
+    let session_count = api::total_focus_sessions_today(&db).unwrap();
+
+    assert_eq!(session_count, expected_count, "Session count mismatch: got {}, expected {}", session_count, expected_count);
+    assert_eq!(distractions, expected_distractions, "Distraction sum mismatch: got {}, expected {}", distractions, expected_distractions);
+    // Allow focus_time to be >= expected_focus_time (ongoing session may add time)
+    assert!(focus_time >= expected_focus_time, "Focus time mismatch: got {}, expected at least {}", focus_time, expected_focus_time);
 } 
