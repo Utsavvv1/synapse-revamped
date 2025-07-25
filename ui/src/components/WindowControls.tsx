@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react"
+import { Window } from "@tauri-apps/api/window"
 
 export function WindowControls() {
   const [isMaximized, setIsMaximized] = useState(false)
-  const [appWindow, setAppWindow] = useState(null)
+  const [appWindow, setAppWindow] = useState<Window | null>(null)
 
   useEffect(() => {
+    let unlistenResize: (() => void) | null = null
+    let unlistenMax: (() => void) | null = null
+    let unlistenUnmax: (() => void) | null = null
     const setupWindow = async () => {
       try {
         // Dynamic import to ensure it works in Tauri environment
@@ -15,19 +19,30 @@ export function WindowControls() {
         const maximized = await window.isMaximized()
         setIsMaximized(maximized)
 
-        const unlistenResize = await window.onResized(() => {
-          window.isMaximized().then(setIsMaximized)
+        unlistenResize = await window.onResized(async () => {
+          const maximized = await window.isMaximized()
+          setIsMaximized(maximized)
         })
+        // Listen for maximize/unmaximize events using the correct event names
+        unlistenMax = await window.listen("tauri://maximize", () => setIsMaximized(true))
+        unlistenUnmax = await window.listen("tauri://unmaximize", () => setIsMaximized(false))
 
         return () => {
-          unlistenResize()
+          unlistenResize && unlistenResize()
+          unlistenMax && unlistenMax()
+          unlistenUnmax && unlistenUnmax()
         }
       } catch (error) {
         console.error("Failed to setup window:", error)
       }
     }
 
-    setupWindow()
+    const cleanupPromise = setupWindow()
+    return () => {
+      cleanupPromise.then((cleanup) => {
+        if (typeof cleanup === 'function') cleanup()
+      })
+    }
   }, [])
 
   const handleMinimize = async () => {
@@ -45,8 +60,10 @@ export function WindowControls() {
       if (appWindow) {
         if (isMaximized) {
           await appWindow.unmaximize()
+          setIsMaximized(false)
         } else {
           await appWindow.maximize()
+          setIsMaximized(true)
         }
       }
     } catch (error) {
