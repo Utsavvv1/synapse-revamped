@@ -1,6 +1,8 @@
 use main_logic::{db::DbHandle, api};
+use dotenvy;
 
 fn main() {
+    dotenvy::from_filename("../src-tauri/.env").ok();
     let db = match DbHandle::new() {
         Ok(db) => db,
         Err(e) => {

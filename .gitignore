@@ -50,3 +50,5 @@ pnpm-debug.log*
 # Existing entries
 .config/
 .vscode
+
+synapse_metrics.db

@@ -1,9 +1,12 @@
 use main_logic::{DbHandle, api};
+use dotenvy;
 
 #[tauri::command]
 fn total_focus_time_today_cmd() -> Result<i64, String> {
     let db = DbHandle::new().map_err(|e| format!("{:?}", e))?;
-    api::total_focus_time_today(&db).map_err(|e| format!("{:?}", e))
+    let result = api::total_focus_time_today(&db);
+    println!("total_focus_time_today_cmd result: {:?}", result);
+    result.map_err(|e| format!("{:?}", e))
 }
 
 #[tauri::command]
@@ -26,6 +29,7 @@ fn get_installed_apps_cmd() -> Vec<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  dotenvy::from_filename(".env").ok();
   tauri::Builder::default()
     .setup(|app| {
       if cfg!(debug_assertions) {
