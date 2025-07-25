@@ -5,7 +5,7 @@ export default function SynapseStatsGrid() {
   const [focusTime, setFocusTime] = useState(0)
   const [distractions, setDistractions] = useState(0)
 
-  useEffect(() => {
+  function fetchStats() {
     invoke("total_focus_time_today_cmd")
       .then((val) => setFocusTime(Number(val)))
       .catch((err) => {
@@ -14,10 +14,15 @@ export default function SynapseStatsGrid() {
       });
     invoke("total_distractions_today_cmd")
       .then((val) => setDistractions(Number(val)))
-      .catch(() => setDistractions(0))
+      .catch((err) => setDistractions(0))
+  }
+
+  useEffect(() => {
+    fetchStats(); // fetch immediately
+    const interval = setInterval(fetchStats, 2000); // poll every 2s
+    return () => clearInterval(interval);
   }, [])
 
-  // Helper to format seconds as Hh Mm
   function formatTime(seconds) {
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)

@@ -5,13 +5,19 @@ import { invoke } from "@tauri-apps/api/core"
 export default function SynapseFocusSessions() {
   const [sessionCount, setSessionCount] = useState(0)
 
-  useEffect(() => {
+  function fetchSessions() {
     invoke("total_focus_sessions_today_cmd")
       .then((val) => setSessionCount(Number(val)))
       .catch((err) => {
         setSessionCount(0);
         console.error("Failed to fetch focus sessions:", err);
       });
+  }
+
+  useEffect(() => {
+    fetchSessions(); // fetch immediately
+    const interval = setInterval(fetchSessions, 2000); // poll every 2s
+    return () => clearInterval(interval);
   }, [])
 
   return (
