@@ -2063,6 +2063,7 @@ dependencies = [
  "tokio",
  "uuid",
  "windows 0.52.0",
+ "winreg 0.11.0",
 ]
 
 [[package]]
@@ -5451,6 +5452,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winreg"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a1a57ff50e9b408431e8f97d5456f2807f8eb2a2cd79b06068fc87f8ecf189"
+dependencies = [
+ "cfg-if",
+ "winapi",
 ]
 
 [[package]]

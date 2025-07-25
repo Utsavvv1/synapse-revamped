@@ -3,6 +3,8 @@
 use crate::db::DbHandle;
 use crate::error::SynapseError;
 use std::time::{SystemTime, UNIX_EPOCH};
+use winreg::enums::*;
+use winreg::RegKey;
 
 /// Returns the total focus time (in seconds) for today.
 pub fn total_focus_time_today(db: &DbHandle) -> Result<i64, SynapseError> {
@@ -32,6 +34,37 @@ pub fn total_focus_sessions_today(db: &DbHandle) -> Result<i64, SynapseError> {
     )?;
     let count: Option<i64> = stmt.query_row([start_of_day, end_of_day], |row| row.get(0)).ok();
     Ok(count.unwrap_or(0))
+}
+
+#[cfg(target_os = "windows")]
+/// Returns a list of installed application display names from the Windows registry.
+pub fn get_installed_apps_api() -> Vec<String> {
+    let mut apps = Vec::new();
+    let uninstall_paths = [
+        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    ];    
+    for (hive, path) in uninstall_paths.iter() {
+        if let Ok(uninstall) = hive.open_subkey(path) {
+            for item in uninstall.enum_keys().flatten() {
+                if let Ok(subkey) = uninstall.open_subkey(&item) {
+                    let display_name: Result<String, _> = subkey.get_value("DisplayName");
+                    let is_system_component: bool = subkey
+                        .get_value::<u32, _>("SystemComponent")
+                        .unwrap_or(0) == 1;
+                    if let Ok(name) = display_name {
+                        if !is_system_component && !name.trim().is_empty() {
+                            apps.push(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    apps.sort();
+    apps.dedup();
+    apps
 }
 
 /// Helper: Returns (start_of_day, end_of_day) as UNIX timestamps for today in UTC.

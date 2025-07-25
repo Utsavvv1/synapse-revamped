@@ -18,6 +18,12 @@ fn total_focus_sessions_today_cmd() -> Result<i64, String> {
     api::total_focus_sessions_today(&db).map_err(|e| format!("{:?}", e))
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn get_installed_apps_cmd() -> Vec<String> {
+    main_logic::api::get_installed_apps_api()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -36,7 +42,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
         total_focus_time_today_cmd,
         total_distractions_today_cmd,
-        total_focus_sessions_today_cmd
+        total_focus_sessions_today_cmd,
+        #[cfg(target_os = "windows")] get_installed_apps_cmd
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
