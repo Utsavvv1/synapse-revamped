@@ -37,33 +37,64 @@ pub fn total_focus_sessions_today(db: &DbHandle) -> Result<i64, SynapseError> {
 }
 
 #[cfg(target_os = "windows")]
-/// Returns a list of installed application display names from the Windows registry.
-pub fn get_installed_apps_api() -> Vec<String> {
+/// Returns a list of installed (app_name, exe_name) tuples from the Windows registry.
+pub fn get_installed_apps_api() -> Vec<(String, String)> {
+    use std::path::Path;
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    fn extract_exe_name(path: &str) -> Option<String> {
+        // Strip quotes/arguments/comma and extract only filename ending in .exe
+        path.split(|c| c == ',' || c == ' ' || c == '\"')
+            .find(|s| s.to_lowercase().ends_with(".exe"))
+            .and_then(|p| {
+                Path::new(p)
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+            })
+    }
+
     let mut apps = Vec::new();
+
     let uninstall_paths = [
         (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
         (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
         (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-    ];    
+    ];
+
     for (hive, path) in uninstall_paths.iter() {
         if let Ok(uninstall) = hive.open_subkey(path) {
             for item in uninstall.enum_keys().flatten() {
                 if let Ok(subkey) = uninstall.open_subkey(&item) {
                     let display_name: Result<String, _> = subkey.get_value("DisplayName");
-                    let is_system_component: bool = subkey
+                    let is_system_component = subkey
                         .get_value::<u32, _>("SystemComponent")
                         .unwrap_or(0) == 1;
+
                     if let Ok(name) = display_name {
-                        if !is_system_component && !name.trim().is_empty() {
-                            apps.push(name);
+                        if is_system_component || name.trim().is_empty() {
+                            continue;
+                        }
+
+                        // Try DisplayIcon first, fallback to UninstallString
+                        let exe_source = subkey.get_value::<String, _>("DisplayIcon")
+                            .ok()
+                            .or_else(|| subkey.get_value("UninstallString").ok());
+
+                        if let Some(source) = exe_source {
+                            if let Some(exe_name) = extract_exe_name(&source) {
+                                apps.push((name.trim().to_string(), exe_name));
+                            }
                         }
                     }
                 }
             }
         }
     }
-    apps.sort();
-    apps.dedup();
+
+    // Sort and deduplicate by app name
+    apps.sort_by(|a, b| a.0.cmp(&b.0));
+    apps.dedup_by(|a, b| a.0 == b.0);
     apps
 }
 
