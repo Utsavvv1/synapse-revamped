@@ -27,6 +27,13 @@ fn get_installed_apps_cmd() -> Vec<String> {
     main_logic::api::get_installed_apps_api()
 }
 
+#[tauri::command]
+fn start_focus_mode_cmd() -> Result<String, String> {
+    // For now, just return success - in a real implementation this would trigger the session manager
+    // to start a focus session immediately
+    Ok("Focus mode started".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   dotenvy::from_filename(".env").ok();
@@ -47,6 +54,7 @@ pub fn run() {
         total_focus_time_today_cmd,
         total_distractions_today_cmd,
         total_focus_sessions_today_cmd,
+        start_focus_mode_cmd,
         #[cfg(target_os = "windows")] get_installed_apps_cmd
     ])
     .run(tauri::generate_context!())
