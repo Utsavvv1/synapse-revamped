@@ -15,10 +15,9 @@ const AppDropdown = ({
 }) => {
   const inputRef = useRef(null)
 
-  // Focus trap for the dropdown
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      inputRef.current.focus() // Focus the search input when dropdown opens
+      inputRef.current.focus()
     }
   }, [isOpen])
 
@@ -29,7 +28,7 @@ const AppDropdown = ({
       ref={dropdownRef}
       key={title}
       className={`absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter ${className} rounded-xl`}
-      style={{ overflow: 'hidden', maxHeight: 'none' }} // Explicitly hide overflow and remove maxHeight constraint
+      style={{ overflow: 'hidden', maxHeight: 'none' }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full p-4 rounded-xl shadow-2xl">
@@ -71,18 +70,18 @@ const AppDropdown = ({
           <div className="space-y-1">
             {apps.map((app, index) => (
               <div
-                key={app.id}
+                key={app[1]} // use exe name as key
                 onClick={(e) => {
                   e.stopPropagation()
-                  onToggleApp(app.id)
+                  onToggleApp(app[1]) // toggle using exe name
                 }}
                 className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter"
                 style={{ animationDelay: `${150 + index * 50}ms` }}
               >
-                <span className="font-medium truncate">{app.name}</span>
+                <span className="font-medium truncate">{app[0]}</span>
                 <Check
                   className={`h-4 w-4 transition-all duration-150 ${
-                    app.checked ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+                    app[2] ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
                   }`}
                 />
               </div>
@@ -118,7 +117,6 @@ export default function SynapseActions() {
   const focusDropdownRef = useRef(null)
   const distractionDropdownRef = useRef(null)
 
-  // Click-outside handler
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -146,13 +144,17 @@ export default function SynapseActions() {
   useEffect(() => {
     async function fetchInstalledApps() {
       try {
-        const appNames = await invoke("get_installed_apps_cmd")
-        if (Array.isArray(appNames)) {
-          const apps = appNames.map((name, index) => ({
-            id: index + 1,
-            name,
-            checked: false,
-          }))
+        const appData = await invoke("get_installed_apps_cmd")
+        if (Array.isArray(appData)) {
+          // Filter out duplicate .exe names
+          const seen = new Set()
+          const uniqueApps = appData.filter(([_, exe]) => {
+            if (seen.has(exe)) return false
+            seen.add(exe)
+            return true
+          })
+
+          const apps = uniqueApps.map(([name, exe]) => [name, exe, false])
           setAllApps(apps)
           setFocusApps(apps.slice(0, apps.length / 2))
           setDistractionApps(apps.slice(apps.length / 2))
@@ -167,27 +169,54 @@ export default function SynapseActions() {
 
   const filteredFocusApps = useMemo(() => {
     return focusApps.filter((app) =>
-      app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())
+      app[0].toLowerCase().includes(focusSearchTerm.toLowerCase())
     )
   }, [focusApps, focusSearchTerm])
 
   const filteredDistractionApps = useMemo(() => {
     return distractionApps.filter((app) =>
-      app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())
+      app[0].toLowerCase().includes(distractionSearchTerm.toLowerCase())
     )
   }, [distractionApps, distractionSearchTerm])
 
-  const toggleFocusApp = (id) => {
+  const toggleFocusApp = (exe) => {
     setFocusApps((prevApps) =>
-      prevApps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app))
+      prevApps.map((app) =>
+        app[1] === exe ? [app[0], app[1], !app[2]] : app
+      )
     )
   }
 
-  const toggleDistractionApp = (id) => {
+  const toggleDistractionApp = (exe) => {
     setDistractionApps((prevApps) =>
-      prevApps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app))
+      prevApps.map((app) =>
+        app[1] === exe ? [app[0], app[1], !app[2]] : app
+      )
     )
   }
+
+  const updateAppRules = async () => {
+    // Deduplicate using Set to avoid duplicates in apprules.json
+    const whitelist = [...new Set(focusApps.filter((app) => app[2]).map((app) => app[1]))]
+    const blacklist = [...new Set(distractionApps.filter((app) => app[2]).map((app) => app[1]))]
+
+    console.log("Focus apps (checked):", whitelist)
+    console.log("Distraction apps (checked):", blacklist)
+
+    try {
+      await invoke("update_app_rules_cmd", { whitelist, blacklist })
+      console.log("App rules updated successfully")
+    } catch (err) {
+      console.error("Failed to update app rules:", err)
+    }
+  }
+
+  // Update rules after dropdowns close and state settles
+  useEffect(() => {
+    if (!showFocusDropdown && !showDistractionDropdown) {
+      updateAppRules()
+    }
+  }, [showFocusDropdown, showDistractionDropdown])
 
   return (
     <div className="relative">
