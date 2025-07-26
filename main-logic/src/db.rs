@@ -19,7 +19,7 @@ impl DbHandle {
     /// Returns `SynapseError` if the database cannot be opened or tables cannot be created.
     pub fn new() -> Result<Self, SynapseError> {
         let db_path = std::env::var("SYNAPSE_DB_PATH").unwrap_or_else(|_| "synapse_metrics.db".to_string());
-        println!("Opening database at: {}", std::fs::canonicalize(&db_path).unwrap_or_else(|_| db_path.clone().into()).display());
+       
         let conn = Connection::open(&db_path)
             .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         // Enable foreign key support

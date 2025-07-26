@@ -1,11 +1,12 @@
 use main_logic::{DbHandle, api, apprules}; // Added apprules
 use dotenvy;
+use std::thread;
 
 #[tauri::command]
 fn total_focus_time_today_cmd() -> Result<i64, String> {
     let db = DbHandle::new().map_err(|e| format!("{:?}", e))?;
     let result = api::total_focus_time_today(&db);
-    println!("total_focus_time_today_cmd result: {:?}", result);
+    // println!("total_focus_time_today_cmd result: {:?}", result);
     result.map_err(|e| format!("{:?}", e))
 }
 
@@ -49,9 +50,13 @@ fn start_focus_mode_cmd() -> Result<String, String> {
 pub fn run() {
     dotenvy::from_filename(".env").ok();
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(|_app| {
+            // Start backend main logic in a background thread
+            thread::spawn(|| {
+                main_logic::run_backend();
+            });
             if cfg!(debug_assertions) {
-                app.handle().plugin(
+                _app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
                         .build(),

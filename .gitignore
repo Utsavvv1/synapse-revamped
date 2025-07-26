@@ -52,3 +52,5 @@ pnpm-debug.log*
 .vscode
 
 synapse_metrics.db
+
+!.env.example
