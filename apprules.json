@@ -1,6 +1,6 @@
 {
   "whitelist": [
+    "7zfm.exe"
   ],
-  "blacklist": [
-  ]
+  "blacklist": []
 }
