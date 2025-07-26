@@ -16,6 +16,6 @@ export async function applyTheme(name /* "light" or "dark" */) {
   }
   
   // immediately apply stored theme (or default to light)
-  applyTheme("black")
+  applyTheme("blue")
     .catch(console.error);
   

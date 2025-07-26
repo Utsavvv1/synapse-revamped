@@ -15,7 +15,7 @@ export default function SynapseApp() {
   })
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden overscroll-none">
       {/* Background Image with Enhanced Overlay */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -27,14 +27,14 @@ export default function SynapseApp() {
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 h-screen flex flex-col">
-        {/* Full-width draggable header area */}
-        <div data-tauri-drag-region className="w-full px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 pt-4 sm:pt-5 md:pt-7 lg:pt-10 xl:pt-12">
+      <div className="relative z-10 h-screen flex flex-col overflow-hidden">
+        {/* Drag region wrapper */}
+        <div data-tauri-drag-region className="px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 pt-4 sm:pt-5 md:pt-7 lg:pt-10 xl:pt-12">
           <SynapseHeader currentTime={currentTime} />
         </div>
 
-        {/* Main Content Area with side padding only */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-8 xl:gap-12 px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-8 xl:gap-12 px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 overflow-hidden">
           {/* Left Column - Hero */}
           <SynapseHero />
 
