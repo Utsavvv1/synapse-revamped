@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from "react"
+"use client"
+
+import { useState, useEffect, useMemo, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Edit3, AlertOctagon, X, Check } from "lucide-react"
 
+/**
+ * Dropdown component used by both Focus and Distraction app buttons.
+ */
 const AppDropdown = ({
   isOpen,
   onClose,
@@ -15,6 +20,7 @@ const AppDropdown = ({
 }) => {
   const inputRef = useRef(null)
 
+  // Focuses the input when dropdown opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus()
@@ -28,10 +34,11 @@ const AppDropdown = ({
       ref={dropdownRef}
       key={title}
       className={`absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter ${className} rounded-xl`}
-      style={{ overflow: 'hidden', maxHeight: 'none' }}
+      style={{ overflow: "hidden", maxHeight: "none" }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full p-4 rounded-xl shadow-2xl">
+        {/* Dropdown header */}
         <div className="flex items-center justify-between mb-3 dropdown-content-enter">
           <h3 className="text-xs font-semibold truncate">{title}</h3>
           <button
@@ -45,7 +52,8 @@ const AppDropdown = ({
           </button>
         </div>
 
-        <div className="mb-3 dropdown-content-enter" style={{ animationDelay: '75ms' }}>
+        {/* Search box */}
+        <div className="mb-3 dropdown-content-enter" style={{ animationDelay: "75ms" }}>
           <input
             ref={inputRef}
             type="text"
@@ -66,7 +74,11 @@ const AppDropdown = ({
           />
         </div>
 
-        <div className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter" style={{ animationDelay: '100ms' }}>
+        {/* App list */}
+        <div
+          className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter"
+          style={{ animationDelay: "100ms" }}
+        >
           <div className="space-y-1">
             {apps.map((app, index) => (
               <div
@@ -75,55 +87,56 @@ const AppDropdown = ({
                   e.stopPropagation()
                   onToggleApp(app[1]) // toggle using exe name
                 }}
-                className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter"
+                className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter gap-3"
                 style={{ animationDelay: `${150 + index * 50}ms` }}
               >
-                <span className="font-medium truncate">{app[0]}</span>
-                <Check
-                  className={`h-4 w-4 transition-all duration-150 ${
-                    app[2] ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-                  }`}
-                />
+                <span className="font-medium truncate flex-1 min-w-0">{app.name}</span>
+                <div className="flex-shrink-0">
+                  <Check
+                    className={`h-4 w-4 transition-all duration-150 ${
+                      app.checked ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                    }`}
+                  />
+                </div>
               </div>
             ))}
             {apps.length === 0 && (
-              <div className="text-center py-6 text-gray-500 text-sm dropdown-content-enter" style={{ animationDelay: '200ms' }}>
+              <div
+                className="text-center py-6 text-gray-500 text-sm dropdown-content-enter"
+                style={{ animationDelay: "200ms" }}
+              >
                 No apps found.
               </div>
             )}
           </div>
         </div>
-
-        <div
-          className={`absolute right-0 top-4 bottom-4 w-1 rounded-full dropdown-content-enter ${
-            className.includes('bg-synapse-accent') ? 'bg-synapse-dark/20' : 'bg-synapse-accent/30'
-          }`}
-          style={{ animationDelay: '200ms' }}
-        />
       </div>
     </div>
   )
 }
 
 export default function SynapseActions() {
+  // Dropdown states
   const [showFocusDropdown, setShowFocusDropdown] = useState(false)
   const [showDistractionDropdown, setShowDistractionDropdown] = useState(false)
+
+  // Search terms
   const [focusSearchTerm, setFocusSearchTerm] = useState("")
   const [distractionSearchTerm, setDistractionSearchTerm] = useState("")
+
+  // App state
   const [allApps, setAllApps] = useState([])
   const [focusApps, setFocusApps] = useState([])
   const [distractionApps, setDistractionApps] = useState([])
 
+  // Refs for dropdown click detection
   const focusDropdownRef = useRef(null)
   const distractionDropdownRef = useRef(null)
 
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        showFocusDropdown &&
-        focusDropdownRef.current &&
-        !focusDropdownRef.current.contains(event.target)
-      ) {
+      if (showFocusDropdown && focusDropdownRef.current && !focusDropdownRef.current.contains(event.target)) {
         setShowFocusDropdown(false)
       }
       if (
@@ -141,6 +154,7 @@ export default function SynapseActions() {
     }
   }, [showFocusDropdown, showDistractionDropdown])
 
+  // Fetch installed apps from Tauri backend
   useEffect(() => {
     async function fetchInstalledApps() {
       try {
@@ -163,7 +177,6 @@ export default function SynapseActions() {
         console.error("Failed to fetch apps from Tauri backend:", err)
       }
     }
-
     fetchInstalledApps()
   }, [])
 
@@ -221,6 +234,7 @@ export default function SynapseActions() {
   return (
     <div className="relative">
       <div className="flex gap-2 md:gap-2.5 lg:gap-3">
+        {/* Focus dropdown trigger */}
         <div className="relative flex-1">
           <button
             onClick={() => {
@@ -248,6 +262,7 @@ export default function SynapseActions() {
           />
         </div>
 
+        {/* Distraction dropdown trigger */}
         <div className="relative flex-1">
           <button
             onClick={() => {
@@ -255,7 +270,7 @@ export default function SynapseActions() {
               setShowFocusDropdown(false)
             }}
             className="group flex items-center justify-center glass-card-dark rounded-full text-synapse-accent font-medium body-text w-full relative overflow-hidden transition-all duration-150 px-3 py-1.5 md:px-4 md:py-2 lg:px-5 lg:py-2.5 gap-1 md:gap-1.5 text-xs sm:text-sm whitespace-nowrap"
-            style={{ backgroundColor: 'hsl(var(--secondarycolor))' }}
+            style={{ backgroundColor: "hsl(var(--secondarycolor))" }}
           >
             <AlertOctagon className="w-2.5 h-2.5 md:w-3 md:h-3 lg:w-3.5 lg:h-3.5 group-hover:shake transition-transform duration-150 flex-shrink-0" />
             <span className="hidden lg:inline">Edit Distraction Apps</span>
@@ -271,7 +286,7 @@ export default function SynapseActions() {
             searchTerm={distractionSearchTerm}
             onSearchChange={setDistractionSearchTerm}
             onToggleApp={toggleDistractionApp}
-            className="bg-synapse-dark-alt text-synapse-accent border border-synapse-accent/20"
+            className="bg-synapse-dark text-synapse-accent"
             dropdownRef={distractionDropdownRef}
           />
         </div>
@@ -279,3 +294,4 @@ export default function SynapseActions() {
     </div>
   )
 }
+
