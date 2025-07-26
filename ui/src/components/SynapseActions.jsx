@@ -90,11 +90,11 @@ const AppDropdown = ({
                 className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter gap-3"
                 style={{ animationDelay: `${150 + index * 50}ms` }}
               >
-                <span className="font-medium truncate flex-1 min-w-0">{app.name}</span>
+                <span className="font-medium truncate flex-1 min-w-0">{app[1]}</span>
                 <div className="flex-shrink-0">
                   <Check
                     className={`h-4 w-4 transition-all duration-150 ${
-                      app.checked ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                      app[2] ? "opacity-100 scale-100" : "opacity-0 scale-75"
                     }`}
                   />
                 </div>
