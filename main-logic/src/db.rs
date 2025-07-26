@@ -4,11 +4,12 @@ use rusqlite::{params, Connection};
 use crate::error::SynapseError;
 use crate::types::AppUsageEvent;
 use uuid::Uuid;
+use std::env;
 
 /// Handle for interacting with the SQLite database.
 pub struct DbHandle {
     /// The underlying SQLite connection.
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 impl DbHandle {
@@ -17,7 +18,9 @@ impl DbHandle {
     /// # Errors
     /// Returns `SynapseError` if the database cannot be opened or tables cannot be created.
     pub fn new() -> Result<Self, SynapseError> {
-        let conn = Connection::open("synapse_metrics.db")
+        let db_path = std::env::var("SYNAPSE_DB_PATH").unwrap_or_else(|_| "synapse_metrics.db".to_string());
+        println!("Opening database at: {}", std::fs::canonicalize(&db_path).unwrap_or_else(|_| db_path.clone().into()).display());
+        let conn = Connection::open(&db_path)
             .map_err(|e| SynapseError::Db(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
         // Enable foreign key support
         conn.execute("PRAGMA foreign_keys = ON", []).ok();
@@ -168,6 +171,15 @@ impl DbHandle {
 
     pub fn test_conn(&mut self) -> &mut Connection {
         &mut self.conn
+    }
+}
+
+pub trait DbConn {
+    fn conn(&self) -> &rusqlite::Connection;
+}
+impl DbConn for DbHandle {
+    fn conn(&self) -> &rusqlite::Connection {
+        &self.conn
     }
 }
 

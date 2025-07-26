@@ -1,8 +1,8 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Synapse"
+authors = [""]
 license = ""
 repository = ""
 edition = "2021"
@@ -24,3 +24,4 @@ log = "0.4"
 tauri = { version = "2.7.0", features = [] }
 tauri-plugin-log = "2"
 main-logic = { path = "../main-logic" }
+dotenvy = "0.15"

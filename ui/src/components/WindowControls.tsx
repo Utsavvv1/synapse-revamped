@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Window } from "@tauri-apps/api/window"
+import { Minus, Square, X, Copy } from 'lucide-react'
 
 export function WindowControls() {
   const [isMaximized, setIsMaximized] = useState(false)
@@ -82,32 +83,36 @@ export function WindowControls() {
   }
 
   return (
-    <div className="flex items-center space-x-1 ml-4">
+    <div className="rounded-full px-3 py-2 gap-0.5 flex items-center transform scale-90 bg-black/30 backdrop-blur-sm border border-white/10">
+      {/* Minimize Button */}
       <button
         onClick={handleMinimize}
-        className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors duration-200 flex items-center justify-center group"
+        className="w-8 h-8 rounded-full hover:bg-white/10 transition-colors duration-150 flex items-center justify-center group"
         title="Minimize"
       >
-        <div className="w-2 h-0.5 bg-yellow-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <Minus className="w-3.5 h-3.5 text-white/70 group-hover:text-white transition-colors" strokeWidth={2.5} />
       </button>
 
+      {/* Maximize/Restore Button */}
       <button
         onClick={handleMaximize}
-        className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors duration-200 flex items-center justify-center group"
+        className="w-8 h-8 rounded-full hover:bg-white/10 transition-colors duration-150 flex items-center justify-center group"
         title={isMaximized ? "Restore" : "Maximize"}
       >
-        <div className="w-1.5 h-1.5 border border-green-800 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        {isMaximized ? (
+          <Copy className="w-3.5 h-3.5 text-white/70 group-hover:text-white transition-colors" strokeWidth={2.5} />
+        ) : (
+          <Square className="w-3.5 h-3.5 text-white/70 group-hover:text-white transition-colors" strokeWidth={2.5} />
+        )}
       </button>
 
+      {/* Close Button */}
       <button
         onClick={handleClose}
-        className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors duration-200 flex items-center justify-center group"
+        className="w-8 h-8 rounded-full hover:bg-red-500/30 transition-colors duration-150 flex items-center justify-center group"
         title="Close"
       >
-        <div className="relative w-1.5 h-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="absolute top-1/2 left-0 w-1.5 h-0.5 bg-red-800 rounded-full transform -translate-y-1/2 rotate-45"></div>
-          <div className="absolute top-1/2 left-0 w-1.5 h-0.5 bg-red-800 rounded-full transform -translate-y-1/2 -rotate-45"></div>
-        </div>
+        <X className="w-3.5 h-3.5 text-white/70 group-hover:text-red-400 transition-colors" strokeWidth={2.5} />
       </button>
     </div>
   )
