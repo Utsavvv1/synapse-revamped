@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from "react"
+"use client"
+
+import { useState, useEffect, useMemo, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Edit3, AlertOctagon, X, Check } from "lucide-react"
 
@@ -32,7 +34,7 @@ const AppDropdown = ({
       ref={dropdownRef}
       key={title}
       className={`absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter ${className} rounded-xl`}
-      style={{ overflow: 'hidden', maxHeight: 'none' }}
+      style={{ overflow: "hidden", maxHeight: "none" }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full p-4 rounded-xl shadow-2xl">
@@ -51,7 +53,7 @@ const AppDropdown = ({
         </div>
 
         {/* Search box */}
-        <div className="mb-3 dropdown-content-enter" style={{ animationDelay: '75ms' }}>
+        <div className="mb-3 dropdown-content-enter" style={{ animationDelay: "75ms" }}>
           <input
             ref={inputRef}
             type="text"
@@ -73,7 +75,10 @@ const AppDropdown = ({
         </div>
 
         {/* App list */}
-        <div className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter" style={{ animationDelay: '100ms' }}>
+        <div
+          className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter"
+          style={{ animationDelay: "100ms" }}
+        >
           <div className="space-y-1">
             {apps.map((app, index) => (
               <div
@@ -82,32 +87,29 @@ const AppDropdown = ({
                   e.stopPropagation()
                   onToggleApp(app.id)
                 }}
-                className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter"
+                className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter gap-3"
                 style={{ animationDelay: `${150 + index * 50}ms` }}
               >
-                <span className="font-medium truncate">{app.name}</span>
-                <Check
-                  className={`h-4 w-4 transition-all duration-150 ${
-                    app.checked ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-                  }`}
-                />
+                <span className="font-medium truncate flex-1 min-w-0">{app.name}</span>
+                <div className="flex-shrink-0">
+                  <Check
+                    className={`h-4 w-4 transition-all duration-150 ${
+                      app.checked ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                    }`}
+                  />
+                </div>
               </div>
             ))}
             {apps.length === 0 && (
-              <div className="text-center py-6 text-gray-500 text-sm dropdown-content-enter" style={{ animationDelay: '200ms' }}>
+              <div
+                className="text-center py-6 text-gray-500 text-sm dropdown-content-enter"
+                style={{ animationDelay: "200ms" }}
+              >
                 No apps found.
               </div>
             )}
           </div>
         </div>
-
-        {/* Scroll indicator */}
-        <div
-          className={`absolute right-0 top-4 bottom-4 w-1 rounded-full dropdown-content-enter ${
-            className.includes('bg-synapse-accent') ? 'bg-synapse-dark/20' : 'bg-synapse-accent/30'
-          }`}
-          style={{ animationDelay: '200ms' }}
-        />
       </div>
     </div>
   )
@@ -137,7 +139,11 @@ export default function SynapseActions() {
       if (showFocusDropdown && focusDropdownRef.current && !focusDropdownRef.current.contains(event.target)) {
         setShowFocusDropdown(false)
       }
-      if (showDistractionDropdown && distractionDropdownRef.current && !distractionDropdownRef.current.contains(event.target)) {
+      if (
+        showDistractionDropdown &&
+        distractionDropdownRef.current &&
+        !distractionDropdownRef.current.contains(event.target)
+      ) {
         setShowDistractionDropdown(false)
       }
     }
@@ -167,12 +173,20 @@ export default function SynapseActions() {
   }, [])
 
   // Filter apps for search
-  const filteredFocusApps = useMemo(() => focusApps.filter((app) => app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())), [focusApps, focusSearchTerm])
-  const filteredDistractionApps = useMemo(() => distractionApps.filter((app) => app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())), [distractionApps, distractionSearchTerm])
+  const filteredFocusApps = useMemo(
+    () => focusApps.filter((app) => app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())),
+    [focusApps, focusSearchTerm],
+  )
+  const filteredDistractionApps = useMemo(
+    () => distractionApps.filter((app) => app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())),
+    [distractionApps, distractionSearchTerm],
+  )
 
   // Toggle checked status
-  const toggleFocusApp = (id) => setFocusApps((apps) => apps.map((app) => app.id === id ? { ...app, checked: !app.checked } : app))
-  const toggleDistractionApp = (id) => setDistractionApps((apps) => apps.map((app) => app.id === id ? { ...app, checked: !app.checked } : app))
+  const toggleFocusApp = (id) =>
+    setFocusApps((apps) => apps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app)))
+  const toggleDistractionApp = (id) =>
+    setDistractionApps((apps) => apps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app)))
 
   return (
     <div className="relative">
@@ -213,7 +227,7 @@ export default function SynapseActions() {
               setShowFocusDropdown(false)
             }}
             className="group flex items-center justify-center glass-card-dark rounded-full text-synapse-accent font-medium body-text w-full relative overflow-hidden transition-all duration-150 px-3 py-1.5 md:px-4 md:py-2 lg:px-5 lg:py-2.5 gap-1 md:gap-1.5 text-xs sm:text-sm whitespace-nowrap"
-            style={{ backgroundColor: 'hsl(var(--secondarycolor))' }}
+            style={{ backgroundColor: "hsl(var(--secondarycolor))" }}
           >
             <AlertOctagon className="w-2.5 h-2.5 md:w-3 md:h-3 lg:w-3.5 lg:h-3.5 group-hover:shake transition-transform duration-150 flex-shrink-0" />
             <span className="hidden lg:inline">Edit Distraction Apps</span>
