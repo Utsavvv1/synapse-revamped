@@ -22,4 +22,5 @@ fn main() {
         Ok(session_count) => println!("Focus sessions today: {}", session_count),
         Err(e) => eprintln!("Error: {:?}", e),
     }
+    println!("{:?}", api::get_installed_apps_api());
 } 

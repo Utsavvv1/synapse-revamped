@@ -80,26 +80,30 @@ const AppDropdown = ({
           style={{ animationDelay: "100ms" }}
         >
           <div className="space-y-1">
-            {apps.map((app, index) => (
-              <div
-                key={app[1]} // use exe name as key
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleApp(app[1]) // toggle using exe name
-                }}
-                className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter gap-3"
-                style={{ animationDelay: `${150 + index * 50}ms` }}
-              >
-                <span className="font-medium truncate flex-1 min-w-0">{app[1]}</span>
-                <div className="flex-shrink-0">
-                  <Check
-                    className={`h-4 w-4 transition-all duration-150 ${
-                      app[2] ? "opacity-100 scale-100" : "opacity-0 scale-75"
-                    }`}
-                  />
+            {apps.map((app, index) => {
+              // Determine checked state: focus or distraction
+              const isChecked = title.toLowerCase().includes("focus") ? app[2] : app[3]
+              return (
+                <div
+                  key={app[1]}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleApp(app[1])
+                  }}
+                  className="flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-black/5 cursor-pointer transition-colors duration-150 select-none dropdown-item-enter gap-3"
+                  style={{ animationDelay: `${150 + index * 50}ms` }}
+                >
+                  <span className="font-medium truncate flex-1 min-w-0">{app[0]}</span>
+                  <div className="flex-shrink-0">
+                    <Check
+                      className={`h-4 w-4 transition-all duration-150 ${
+                        isChecked ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {apps.length === 0 && (
               <div
                 className="text-center py-6 text-gray-500 text-sm dropdown-content-enter"
@@ -124,10 +128,8 @@ export default function SynapseActions() {
   const [focusSearchTerm, setFocusSearchTerm] = useState("")
   const [distractionSearchTerm, setDistractionSearchTerm] = useState("")
 
-  // App state
+  // App state: [name, exe, isFocus, isDistraction]
   const [allApps, setAllApps] = useState([])
-  const [focusApps, setFocusApps] = useState([])
-  const [distractionApps, setDistractionApps] = useState([])
 
   // Refs for dropdown click detection
   const focusDropdownRef = useRef(null)
@@ -168,10 +170,8 @@ export default function SynapseActions() {
             return true
           })
 
-          const apps = uniqueApps.map(([name, exe]) => [name, exe, false])
-          setAllApps(apps)
-          setFocusApps(apps.slice(0, apps.length / 2))
-          setDistractionApps(apps.slice(apps.length / 2))
+        const apps = uniqueApps.map(([name, exe]) => [name, exe, false, false])
+        setAllApps(apps)
         }
       } catch (err) {
         console.error("Failed to fetch apps from Tauri backend:", err)
@@ -181,37 +181,37 @@ export default function SynapseActions() {
   }, [])
 
   const filteredFocusApps = useMemo(() => {
-    return focusApps.filter((app) =>
+    return allApps.filter((app) =>
       app[0].toLowerCase().includes(focusSearchTerm.toLowerCase())
     )
-  }, [focusApps, focusSearchTerm])
+  }, [allApps, focusSearchTerm])
 
   const filteredDistractionApps = useMemo(() => {
-    return distractionApps.filter((app) =>
+    return allApps.filter((app) =>
       app[0].toLowerCase().includes(distractionSearchTerm.toLowerCase())
     )
-  }, [distractionApps, distractionSearchTerm])
+  }, [allApps, distractionSearchTerm])
 
   const toggleFocusApp = (exe) => {
-    setFocusApps((prevApps) =>
+    setAllApps((prevApps) =>
       prevApps.map((app) =>
-        app[1] === exe ? [app[0], app[1], !app[2]] : app
+        app[1] === exe ? [app[0], app[1], !app[2], app[3]] : app
       )
     )
   }
 
   const toggleDistractionApp = (exe) => {
-    setDistractionApps((prevApps) =>
+    setAllApps((prevApps) =>
       prevApps.map((app) =>
-        app[1] === exe ? [app[0], app[1], !app[2]] : app
+        app[1] === exe ? [app[0], app[1], app[2], !app[3]] : app
       )
     )
   }
 
   const updateAppRules = async () => {
     // Deduplicate using Set to avoid duplicates in apprules.json
-    const whitelist = [...new Set(focusApps.filter((app) => app[2]).map((app) => app[1]))]
-    const blacklist = [...new Set(distractionApps.filter((app) => app[2]).map((app) => app[1]))]
+    const whitelist = [...new Set(allApps.filter((app) => app[2]).map((app) => app[1]))]
+    const blacklist = [...new Set(allApps.filter((app) => app[3]).map((app) => app[1]))]
 
     console.log("Focus apps (checked):", whitelist)
     console.log("Distraction apps (checked):", blacklist)
