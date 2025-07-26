@@ -33,7 +33,7 @@ export default function SynapseHero({ onStartFocus }) {
         onClick={handleStartFocus}
       >
         <Play className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 fill-current group-hover:scale-110 transition-transform duration-300" />
-        Start Focus
+        Stop Monitoring
         <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
       </button>
     </div>

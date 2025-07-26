@@ -32,7 +32,7 @@ export default function SynapseApp() {
       <FocusNotification
         isVisible={isVisible}
         topOffset={position}
-        text="Focus Mode ON"
+        text="Monitoring ON"
         bgColor="#D4E84D"
         textColor="#000000"
       />

@@ -13,7 +13,7 @@ import React from 'react';
 const FocusNotification = ({
   isVisible = false,
   topOffset = '15vh',
-  text = 'Focus Mode ON',
+  text = 'Monitoring ON',
   className = '',
   style = {},
 }) => {
