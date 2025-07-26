@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Edit3, AlertOctagon, X, Check } from "lucide-react"
 
+/**
+ * Dropdown component used by both Focus and Distraction app buttons.
+ */
 const AppDropdown = ({
   isOpen,
   onClose,
@@ -15,10 +18,10 @@ const AppDropdown = ({
 }) => {
   const inputRef = useRef(null)
 
-  // Focus trap for the dropdown
+  // Focuses the input when dropdown opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      inputRef.current.focus() // Focus the search input when dropdown opens
+      inputRef.current.focus()
     }
   }, [isOpen])
 
@@ -29,10 +32,11 @@ const AppDropdown = ({
       ref={dropdownRef}
       key={title}
       className={`absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter ${className} rounded-xl`}
-      style={{ overflow: 'hidden', maxHeight: 'none' }} // Explicitly hide overflow and remove maxHeight constraint
+      style={{ overflow: 'hidden', maxHeight: 'none' }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full p-4 rounded-xl shadow-2xl">
+        {/* Dropdown header */}
         <div className="flex items-center justify-between mb-3 dropdown-content-enter">
           <h3 className="text-xs font-semibold truncate">{title}</h3>
           <button
@@ -46,6 +50,7 @@ const AppDropdown = ({
           </button>
         </div>
 
+        {/* Search box */}
         <div className="mb-3 dropdown-content-enter" style={{ animationDelay: '75ms' }}>
           <input
             ref={inputRef}
@@ -67,6 +72,7 @@ const AppDropdown = ({
           />
         </div>
 
+        {/* App list */}
         <div className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter" style={{ animationDelay: '100ms' }}>
           <div className="space-y-1">
             {apps.map((app, index) => (
@@ -95,6 +101,7 @@ const AppDropdown = ({
           </div>
         </div>
 
+        {/* Scroll indicator */}
         <div
           className={`absolute right-0 top-4 bottom-4 w-1 rounded-full dropdown-content-enter ${
             className.includes('bg-synapse-accent') ? 'bg-synapse-dark/20' : 'bg-synapse-accent/30'
@@ -107,32 +114,30 @@ const AppDropdown = ({
 }
 
 export default function SynapseActions() {
+  // Dropdown states
   const [showFocusDropdown, setShowFocusDropdown] = useState(false)
   const [showDistractionDropdown, setShowDistractionDropdown] = useState(false)
+
+  // Search terms
   const [focusSearchTerm, setFocusSearchTerm] = useState("")
   const [distractionSearchTerm, setDistractionSearchTerm] = useState("")
+
+  // App state
   const [allApps, setAllApps] = useState([])
   const [focusApps, setFocusApps] = useState([])
   const [distractionApps, setDistractionApps] = useState([])
 
+  // Refs for dropdown click detection
   const focusDropdownRef = useRef(null)
   const distractionDropdownRef = useRef(null)
 
-  // Click-outside handler
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        showFocusDropdown &&
-        focusDropdownRef.current &&
-        !focusDropdownRef.current.contains(event.target)
-      ) {
+      if (showFocusDropdown && focusDropdownRef.current && !focusDropdownRef.current.contains(event.target)) {
         setShowFocusDropdown(false)
       }
-      if (
-        showDistractionDropdown &&
-        distractionDropdownRef.current &&
-        !distractionDropdownRef.current.contains(event.target)
-      ) {
+      if (showDistractionDropdown && distractionDropdownRef.current && !distractionDropdownRef.current.contains(event.target)) {
         setShowDistractionDropdown(false)
       }
     }
@@ -143,16 +148,13 @@ export default function SynapseActions() {
     }
   }, [showFocusDropdown, showDistractionDropdown])
 
+  // Fetch installed apps from Tauri backend
   useEffect(() => {
     async function fetchInstalledApps() {
       try {
         const appNames = await invoke("get_installed_apps_cmd")
         if (Array.isArray(appNames)) {
-          const apps = appNames.map((name, index) => ({
-            id: index + 1,
-            name,
-            checked: false,
-          }))
+          const apps = appNames.map((name, index) => ({ id: index + 1, name, checked: false }))
           setAllApps(apps)
           setFocusApps(apps.slice(0, apps.length / 2))
           setDistractionApps(apps.slice(apps.length / 2))
@@ -161,37 +163,21 @@ export default function SynapseActions() {
         console.error("Failed to fetch apps from Tauri backend:", err)
       }
     }
-
     fetchInstalledApps()
   }, [])
 
-  const filteredFocusApps = useMemo(() => {
-    return focusApps.filter((app) =>
-      app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())
-    )
-  }, [focusApps, focusSearchTerm])
+  // Filter apps for search
+  const filteredFocusApps = useMemo(() => focusApps.filter((app) => app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())), [focusApps, focusSearchTerm])
+  const filteredDistractionApps = useMemo(() => distractionApps.filter((app) => app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())), [distractionApps, distractionSearchTerm])
 
-  const filteredDistractionApps = useMemo(() => {
-    return distractionApps.filter((app) =>
-      app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())
-    )
-  }, [distractionApps, distractionSearchTerm])
-
-  const toggleFocusApp = (id) => {
-    setFocusApps((prevApps) =>
-      prevApps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app))
-    )
-  }
-
-  const toggleDistractionApp = (id) => {
-    setDistractionApps((prevApps) =>
-      prevApps.map((app) => (app.id === id ? { ...app, checked: !app.checked } : app))
-    )
-  }
+  // Toggle checked status
+  const toggleFocusApp = (id) => setFocusApps((apps) => apps.map((app) => app.id === id ? { ...app, checked: !app.checked } : app))
+  const toggleDistractionApp = (id) => setDistractionApps((apps) => apps.map((app) => app.id === id ? { ...app, checked: !app.checked } : app))
 
   return (
     <div className="relative">
       <div className="flex gap-2 md:gap-2.5 lg:gap-3">
+        {/* Focus dropdown trigger */}
         <div className="relative flex-1">
           <button
             onClick={() => {
@@ -219,6 +205,7 @@ export default function SynapseActions() {
           />
         </div>
 
+        {/* Distraction dropdown trigger */}
         <div className="relative flex-1">
           <button
             onClick={() => {
@@ -242,7 +229,7 @@ export default function SynapseActions() {
             searchTerm={distractionSearchTerm}
             onSearchChange={setDistractionSearchTerm}
             onToggleApp={toggleDistractionApp}
-            className="bg-synapse-dark-alt text-synapse-accent border border-synapse-accent/20"
+            className="bg-synapse-dark text-synapse-accent"
             dropdownRef={distractionDropdownRef}
           />
         </div>
