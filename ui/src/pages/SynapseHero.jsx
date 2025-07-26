@@ -1,20 +1,26 @@
-import React from "react"
-import { Play, Zap } from "lucide-react"
+import React, { useState } from "react"
+import { Play, Square } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 
-export default function SynapseHero({ onStartFocus }) {
-  const handleStartFocus = async () => {
-    try {
-      // Call the backend command to start focus mode
-      await invoke("start_focus_mode_cmd");
-      // Trigger the notification animation
-      onStartFocus();
-    } catch (error) {
-      console.error("Failed to start focus mode:", error);
-      // Still trigger notification even if backend fails
-      onStartFocus();
-    }
-  };
+// Reusable button component
+function MonitoringButton({ content, Icon, onClick }) {
+  return (
+    <button
+      className="my-6 group flex items-center bg-synapse-accent rounded-full text-synapse-dark font-medium body-text hover:bg-synapse-accent/90 transition-all duration-300 w-fit px-4 py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 gap-2 text-xs md:text-sm lg:text-base glow-accent hover:scale-105"
+      onClick={onClick}
+    >
+      <Icon className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 fill-current group-hover:scale-110 transition-transform duration-300" />
+      {content}
+    </button>
+  )
+}
+
+export default function SynapseHero() {
+  const [isMonitoring, setIsMonitoring] = useState(false)
+
+  // These functions just toggle the button
+  const func1 = () => setIsMonitoring(true)
+  const func2 = () => setIsMonitoring(false)
 
   return (
     <div className="flex-1 flex flex-col justify-center w-full min-w-0">
@@ -28,14 +34,11 @@ export default function SynapseHero({ onStartFocus }) {
           <span className="sm:hidden"> </span>the day.
         </div>
       </div>
-      <button
-        className="my-6 group flex items-center bg-synapse-accent rounded-full text-synapse-dark font-medium body-text hover:bg-synapse-accent/90 transition-all duration-300 w-fit px-4 py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 gap-2 text-xs md:text-sm lg:text-base glow-accent hover:scale-105"
-        onClick={handleStartFocus}
-      >
-        <Play className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 fill-current group-hover:scale-110 transition-transform duration-300" />
-        Stop Monitoring
-        <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-      </button>
+      {isMonitoring ? (
+        <MonitoringButton content="Stop Monitoring" Icon={Square} onClick={func2} />
+      ) : (
+        <MonitoringButton content="Start Monitoring" Icon={Play} onClick={func1} />
+      )}
     </div>
   )
 } 
