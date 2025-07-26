@@ -6,16 +6,37 @@ import SynapseStatsGrid from "./SynapseStatsGrid"
 import SynapseFocusSessions from "./SynapseFocusSessions"
 import SynapseStatisticsButton from "../components/SynapseStatisticsButton";
 import SynapseDailyGoal from "./SynapseDailyGoal"
+import FocusNotification from "../components/FocusNotification"
+import { useFocusNotification } from "../hooks/useFocusNotification"
 
 export default function SynapseApp() {
+  const { isVisible, position, triggerNotification } = useFocusNotification(6000);
   const currentTime = new Date().toLocaleTimeString("en-US", {
     hour12: false,
     hour: "2-digit",
     minute: "2-digit",
   })
 
+  // Handler to trigger notification
+  const handleFocusStart = () => {
+    console.log("🎯 Focus button clicked - starting notification");
+    triggerNotification();
+  };
+
+  // Debug log when notification state changes
+  console.log("🔍 Current notification state:", isVisible, "Position:", position);
+
   return (
     <div className="min-h-screen relative overflow-hidden overscroll-none">
+      {/* Modular Focus Notification */}
+      <FocusNotification
+        isVisible={isVisible}
+        topOffset={position}
+        text="Focus Mode ON"
+        bgColor="#D4E84D"
+        textColor="#000000"
+      />
+      
       {/* Background Image with Enhanced Overlay */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -36,7 +57,7 @@ export default function SynapseApp() {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-8 xl:gap-12 px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 overflow-hidden">
           {/* Left Column - Hero */}
-          <SynapseHero />
+          <SynapseHero onStartFocus={handleFocusStart} />
 
           {/* Right Column - Stats and Controls */}
           <div className="flex flex-col gap-2 md:gap-2.5 lg:gap-3 w-full md:w-80 lg:w-96 xl:w-[26rem] flex-shrink-0">
