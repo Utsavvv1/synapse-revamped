@@ -1,4 +1,4 @@
-import { Play, Edit3, AlertOctagon, BarChart3, Zap, Target } from "lucide-react"
+import { Play, Edit3, AlertOctagon, BarChart3, Zap, Target } from 'lucide-react'
 import SynapseHeader from "../layouts/SynapseHeader"
 import SynapseHero from "./SynapseHero"
 import SynapseActions from "../components/SynapseActions";
@@ -27,12 +27,14 @@ export default function SynapseApp() {
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 h-screen flex flex-col p-4 sm:p-5 md:p-7 lg:p-10 xl:p-12">
-        {/* Compact Header */}
-        <SynapseHeader currentTime={currentTime} />
+      <div className="relative z-10 h-screen flex flex-col">
+        {/* Full-width draggable header area */}
+        <div data-tauri-drag-region className="w-full px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 pt-4 sm:pt-5 md:pt-7 lg:pt-10 xl:pt-12">
+          <SynapseHeader currentTime={currentTime} />
+        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-8 xl:gap-12">
+        {/* Main Content Area with side padding only */}
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 lg:gap-8 xl:gap-12 px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12">
           {/* Left Column - Hero */}
           <SynapseHero />
 
@@ -53,7 +55,9 @@ export default function SynapseApp() {
         </div>
 
         {/* Enhanced Footer - Daily Goal */}
-        <SynapseDailyGoal />
+        <div className="px-4 sm:px-5 md:px-7 lg:px-10 xl:px-12 pb-4 sm:pb-5 md:pb-7 lg:pb-10 xl:pb-12">
+          <SynapseDailyGoal />
+        </div>
       </div>
     </div>
   )
