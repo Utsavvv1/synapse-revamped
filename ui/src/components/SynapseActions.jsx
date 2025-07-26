@@ -1,67 +1,57 @@
-import React, { useState } from "react"
-import { Edit3, AlertOctagon, Search, X, Check } from "lucide-react"
+import React, { useState, useEffect } from "react"
+import { invoke } from "@tauri-apps/api/core"
+import { Edit3, AlertOctagon, X, Check } from "lucide-react"
 
 export default function SynapseActions() {
   const [showFocusDropdown, setShowFocusDropdown] = useState(false)
   const [showDistractionDropdown, setShowDistractionDropdown] = useState(false)
   const [focusSearchTerm, setFocusSearchTerm] = useState("")
   const [distractionSearchTerm, setDistractionSearchTerm] = useState("")
-  
-  // Sample app data - in a real app this would come from your backend/state
-  const [focusApps, setFocusApps] = useState([
-    { id: 1, name: "Notepad", checked: false },
-    { id: 2, name: "Visual Studio Code", checked: true },
-    { id: 3, name: "Figma", checked: false },
-    { id: 4, name: "Adobe Photoshop", checked: true },
-    { id: 5, name: "Spotify", checked: false },
-    { id: 6, name: "Notion", checked: true },
-    { id: 7, name: "Slack", checked: false },
-    { id: 8, name: "Microsoft Word", checked: true },
-    { id: 9, name: "Excel", checked: false },
-    { id: 10, name: "PowerPoint", checked: true },
-    { id: 11, name: "OneNote", checked: false },
-    { id: 12, name: "Teams", checked: true },
-    { id: 13, name: "Zoom", checked: false },
-    { id: 14, name: "Adobe Illustrator", checked: true },
-    { id: 15, name: "InDesign", checked: false }
-  ])
+  const [allApps, setAllApps] = useState([])
 
-  const [distractionApps, setDistractionApps] = useState([
-    { id: 1, name: "Notepad", checked: false },
-    { id: 2, name: "Chrome", checked: true },
-    { id: 3, name: "Discord", checked: true },
-    { id: 4, name: "Instagram", checked: false },
-    { id: 5, name: "TikTok", checked: true },
-    { id: 6, name: "Facebook", checked: false },
-    { id: 7, name: "Twitter", checked: true },
-    { id: 8, name: "YouTube", checked: false },
-    { id: 9, name: "Netflix", checked: true },
-    { id: 10, name: "Gaming Launcher", checked: false },
-    { id: 11, name: "Steam", checked: true },
-    { id: 12, name: "WhatsApp", checked: false },
-    { id: 13, name: "Telegram", checked: true },
-    { id: 14, name: "Reddit", checked: false },
-    { id: 15, name: "Twitch", checked: true }
-  ])
+  const [focusApps, setFocusApps] = useState([])
+  const [distractionApps, setDistractionApps] = useState([])
 
-  const filteredFocusApps = focusApps.filter(app => 
+  useEffect(() => {
+    async function fetchInstalledApps() {
+      try {
+        const appNames = await invoke("get_installed_apps_cmd")
+        if (Array.isArray(appNames)) {
+          const apps = appNames.map((name, index) => ({
+            id: index + 1,
+            name,
+            checked: false
+          }))
+          setAllApps(apps)
+          setFocusApps(apps.slice(0, apps.length / 2))
+          setDistractionApps(apps.slice(apps.length / 2))
+        }
+      } catch (err) {
+        console.error("Failed to fetch apps from Tauri backend:", err)
+      }
+    }
+
+    fetchInstalledApps()
+  }, [])
+
+  const filteredFocusApps = focusApps.filter(app =>
     app.name.toLowerCase().includes(focusSearchTerm.toLowerCase())
   )
-  
-  const filteredDistractionApps = distractionApps.filter(app => 
+
+  const filteredDistractionApps = distractionApps.filter(app =>
     app.name.toLowerCase().includes(distractionSearchTerm.toLowerCase())
   )
 
   const toggleFocusApp = (id) => {
-    setFocusApps(apps => apps.map(app => 
-      app.id === id ? { ...app, checked: !app.checked } : app
-    ))
+    setFocusApps(apps =>
+      apps.map(app => app.id === id ? { ...app, checked: !app.checked } : app)
+    )
   }
 
   const toggleDistractionApp = (id) => {
-    setDistractionApps(apps => apps.map(app => 
-      app.id === id ? { ...app, checked: !app.checked } : app
-    ))
+    setDistractionApps(apps =>
+      apps.map(app => app.id === id ? { ...app, checked: !app.checked } : app)
+    )
   }
 
   const AppDropdown = ({
@@ -77,9 +67,8 @@ export default function SynapseActions() {
     if (!isOpen) return null
 
     return (
-      <div className={`absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter`}>
+      <div className="absolute top-full left-0 right-0 mt-2 z-50 dropdown-enter">
         <div className={`w-full p-4 rounded-xl shadow-2xl ${className}`}>
-          {/* Header */}
           <div className="flex items-center justify-between mb-3 dropdown-content-enter">
             <h3 className="text-xs font-semibold truncate">{title}</h3>
             <button
@@ -90,7 +79,6 @@ export default function SynapseActions() {
             </button>
           </div>
 
-          {/* Search Input */}
           <div className="mb-3 dropdown-content-enter" style={{ animationDelay: '75ms' }}>
             <input
               type="text"
@@ -101,7 +89,6 @@ export default function SynapseActions() {
             />
           </div>
 
-          {/* App List */}
           <div className="h-32 overflow-y-auto custom-scrollbar dropdown-content-enter" style={{ animationDelay: '100ms' }}>
             <div className="space-y-1">
               {apps.map((app, index) => (
@@ -127,7 +114,6 @@ export default function SynapseActions() {
             </div>
           </div>
 
-          {/* Accent line for visual flair */}
           <div className={`absolute right-0 top-4 bottom-4 w-1 rounded-full dropdown-content-enter ${
             className.includes('bg-synapse-accent') ? 'bg-synapse-dark/20' : 'bg-synapse-accent/30'
           }`} style={{ animationDelay: '200ms' }} />
@@ -153,7 +139,6 @@ export default function SynapseActions() {
             <div className="w-0 group-hover:w-1 h-1 bg-synapse-dark rounded-full transition-all duration-300" />
           </button>
 
-          {/* Focus Apps Dropdown */}
           <AppDropdown
             isOpen={showFocusDropdown}
             onClose={() => setShowFocusDropdown(false)}
@@ -181,7 +166,6 @@ export default function SynapseActions() {
             <div className="w-0 group-hover:w-1 h-1 bg-synapse-accent rounded-full transition-all duration-300" />
           </button>
 
-          {/* Distraction Apps Dropdown */}
           <AppDropdown
             isOpen={showDistractionDropdown}
             onClose={() => setShowDistractionDropdown(false)}

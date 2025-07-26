@@ -32,6 +32,7 @@
           "description": "Capability for window control operations",
           "windows": ["*"],
           "permissions": [
+            "core:event:allow-listen",
             "core:window:allow-close",
             "core:window:allow-hide",
             "core:window:allow-show",
