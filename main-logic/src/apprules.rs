@@ -81,8 +81,15 @@ impl AppRules {
     /// # Errors
     /// Returns `SynapseError` if the file cannot be written or serialized.
     pub fn update_rules(&mut self, whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), SynapseError> {
+        log::info!("[DEBUG] update_rules called");
+        log::info!("[DEBUG] Incoming whitelist: {:?}", whitelist);
+        log::info!("[DEBUG] Incoming blacklist: {:?}", blacklist);
+
         self.whitelist = Self::expand_names(whitelist); // Expand .exe names if needed
         self.blacklist = Self::expand_names(blacklist); // Expand .exe names if needed
+
+        log::info!("[DEBUG] Expanded whitelist: {:?}", self.whitelist);
+        log::info!("[DEBUG] Expanded blacklist: {:?}", self.blacklist);
 
         let rules = AppRulesFile {
             whitelist: self.whitelist.iter().map(|s| s.to_string()).collect(),
@@ -90,11 +97,21 @@ impl AppRules {
         };
 
         let json = serde_json::to_string_pretty(&rules)
-            .map_err(|e| SynapseError::Config(format!("Failed to serialize app rules: {}", e)))?;
+            .map_err(|e| {
+                log::error!("[DEBUG] Failed to serialize app rules: {}", e);
+                SynapseError::Config(format!("Failed to serialize app rules: {}", e))
+            })?;
         let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
         let path = Path::new(&path_str);
+
+        log::info!("[DEBUG] Writing rules to: {}", path.display());
         fs::write(path, json)
-            .map_err(|e| SynapseError::Config(format!("Failed to write apprules.json: {}", e)))?;
+            .map_err(|e| {
+                log::error!("[DEBUG] Failed to write apprules.json: {}", e);
+                SynapseError::Config(format!("Failed to write apprules.json: {}", e))
+            })?;
+
+        log::info!("[DEBUG] App rules successfully updated and written to disk.");
 
         Ok(())
     }
@@ -122,18 +139,18 @@ impl AppRules {
 
 /// Public function to update apprules.json without managing state in src-tauri.
 pub fn update_app_rules(whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), SynapseError> {
-    println!("Updating app rules:");
-    println!("  New whitelist: {:?}", whitelist);
-    println!("  New blacklist: {:?}", blacklist);
+    log::info!("Updating app rules:");
+    log::info!("  New whitelist: {:?}", whitelist);
+    log::info!("  New blacklist: {:?}", blacklist);
 
     // Load existing rules, update them, and save
     let mut rules = AppRules::new()?;
     rules.update_rules(whitelist, blacklist)?;
-    println!("App rules updated and saved to apprules.json.");
+    log::info!("App rules updated and saved to apprules.json.");
 
     // Print the updated rules for debug
-    println!("  Updated whitelist: {:?}", rules.whitelist());
-    println!("  Updated blacklist: {:?}", rules.blacklist());
+    log::info!("  Updated whitelist: {:?}", rules.whitelist());
+    log::info!("  Updated blacklist: {:?}", rules.blacklist());
 
     Ok(())
 }

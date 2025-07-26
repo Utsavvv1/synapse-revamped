@@ -10,6 +10,9 @@ mod graceful_shutdown;
 mod types;
 mod constants;
 mod sync;
+use notify::{RecommendedWatcher, RecursiveMode, Event, EventKind, Watcher};
+use std::sync::mpsc::channel;
+use std::path::Path;
 
 use session::SessionManager;
 use metrics::Metrics;
@@ -52,6 +55,39 @@ async fn main() {
     println!("Constructing SessionManager with supabase_sync: {}", supabase_sync.is_some());
     let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
+
+    // --- File watcher for apprules.json ---
+    {
+        let session_mgr = session_mgr.clone();
+        let shutdown_flag = shutdown_flag.clone();
+        thread::spawn(move || {
+            let (tx, rx) = channel();
+            let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+            let path = Path::new(&path_str);
+            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default()).expect("Failed to create watcher");
+            watcher.watch(path, RecursiveMode::NonRecursive).expect("Failed to watch apprules.json");
+            while !shutdown_flag.load(Ordering::SeqCst) {
+                if let Ok(event) = rx.recv_timeout(Duration::from_secs(1)) {
+                    match event {
+                        Ok(Event { kind: EventKind::Modify(_), .. }) => {
+                            log::info!("[Watcher] Detected apprules.json change, reloading...");
+                            match AppRules::new() {
+                                Ok(new_rules) => {
+                                    let mut mgr = session_mgr.lock().unwrap();
+                                    mgr.set_apprules(new_rules);
+                                    log::info!("[Watcher] AppRules reloaded successfully.");
+                                },
+                                Err(e) => {
+                                    log::error!("[Watcher] Failed to reload AppRules: {}", e);
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            }
+        });
+    }
 
     graceful_shutdown::install(session_mgr.clone(), shutdown_flag.clone());
 

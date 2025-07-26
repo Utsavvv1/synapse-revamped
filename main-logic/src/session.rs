@@ -206,6 +206,11 @@ impl SessionManager {
         self.session_id = Some(id);
     }
 
+    /// Sets the application rules for the session manager.
+    pub fn set_apprules(&mut self, apprules: crate::apprules::AppRules) {
+        self.apprules = apprules;
+    }
+
     // --- Private Helper Methods ---
 
     fn handle_foreground_process(&mut self, proc_name: String, running_processes: &[String], any_work_app_running: bool) -> Result<(), SynapseError> {
