@@ -1,6 +1,56 @@
 use main_logic::{DbHandle, api, apprules}; // Added apprules
 use dotenvy;
 use std::thread;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::thread::JoinHandle;
+use tauri::State;
+
+// Global state for backend control
+struct BackendState {
+    handle: Mutex<Option<JoinHandle<()>>>,
+    shutdown_flag: Arc<AtomicBool>,
+}
+
+impl BackendState {
+    fn new() -> Self {
+        Self {
+            handle: Mutex::new(None),
+            shutdown_flag: Arc::new(AtomicBool::new(false)),
+        }
+    }
+}
+
+#[tauri::command]
+fn start_monitoring_cmd(state: State<BackendState>) -> Result<(), String> {
+    let mut handle_guard = state.handle.lock().unwrap();
+    if handle_guard.is_some() {
+        return Ok(()); // Already running
+    }
+    state.shutdown_flag.store(false, Ordering::SeqCst);
+    let shutdown_flag = state.shutdown_flag.clone();
+    *handle_guard = Some(thread::spawn(move || {
+        main_logic::run_backend_with_shutdown(shutdown_flag);
+    }));
+    println!("[Tauri] Backend monitoring started");
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_monitoring_cmd(state: State<BackendState>) -> Result<(), String> {
+    let mut handle_guard = state.handle.lock().unwrap();
+    state.shutdown_flag.store(true, Ordering::SeqCst);
+    if let Some(handle) = handle_guard.take() {
+        let _ = handle.join();
+    }
+    println!("[Tauri] Backend monitoring stopped");
+    Ok(())
+}
+
+#[tauri::command]
+fn is_monitoring_cmd(state: State<BackendState>) -> Result<bool, String> {
+    let handle_guard = state.handle.lock().unwrap();
+    Ok(handle_guard.is_some())
+}
 
 #[tauri::command]
 fn total_focus_time_today_cmd() -> Result<i64, String> {
@@ -50,11 +100,8 @@ fn start_focus_mode_cmd() -> Result<String, String> {
 pub fn run() {
     dotenvy::from_filename(".env").ok();
     tauri::Builder::default()
+        .manage(BackendState::new())
         .setup(|_app| {
-            // Start backend main logic in a background thread
-            thread::spawn(|| {
-                main_logic::run_backend();
-            });
             if cfg!(debug_assertions) {
                 _app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -62,8 +109,6 @@ pub fn run() {
                         .build(),
                 )?;
             }
-            // Example usage of main-logic crate
-            // main_logic::some_function();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -72,7 +117,10 @@ pub fn run() {
             total_focus_sessions_today_cmd,
             start_focus_mode_cmd,
         #[cfg(target_os = "windows")] get_installed_apps_cmd,
-            update_app_rules_cmd
+            update_app_rules_cmd,
+            start_monitoring_cmd,
+            stop_monitoring_cmd,
+            is_monitoring_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
