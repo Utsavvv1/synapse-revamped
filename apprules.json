@@ -1,6 +1,4 @@
 {
-  "whitelist": [
-  ],
-  "blacklist": [
-  ]
+  "whitelist": [],
+  "blacklist": []
 }
