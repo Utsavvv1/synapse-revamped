@@ -7,10 +7,20 @@ import SynapseFocusSessions from "./SynapseFocusSessions"
 import SynapseStatisticsButton from "../components/SynapseStatisticsButton";
 import SynapseDailyGoal from "./SynapseDailyGoal"
 import FocusNotification from "../components/FocusNotification"
+import AppBlockModal from "../components/AppBlockModal"
 import { useFocusNotification } from "../hooks/useFocusNotification"
+import { useAppBlockModal } from "../hooks/useAppBlockModal"
 
 export default function SynapseApp() {
   const { isVisible, position, triggerNotification } = useFocusNotification(6000);
+  const { 
+    isVisible: isBlockModalVisible, 
+    showModal: showBlockModal, 
+    handleCloseApp, 
+    handleUseFor5Mins,
+    handleShowAgain
+  } = useAppBlockModal();
+  
   const currentTime = new Date().toLocaleTimeString("en-US", {
     hour12: false,
     hour: "2-digit",
@@ -21,6 +31,12 @@ export default function SynapseApp() {
   const handleFocusStart = () => {
     console.log("🎯 Focus button clicked - starting notification");
     triggerNotification();
+  };
+
+  // Handler to trigger block modal (for testing)
+  const handleTriggerBlockModal = () => {
+    console.log("🚫 Triggering block modal");
+    showBlockModal();
   };
 
   // Debug log when notification state changes
@@ -35,6 +51,14 @@ export default function SynapseApp() {
         text="Monitoring ON"
         bgColor="#D4E84D"
         textColor="#000000"
+      />
+      
+      {/* App Block Modal */}
+      <AppBlockModal
+        isVisible={isBlockModalVisible}
+        onClose={handleCloseApp}
+        onUseFor5Mins={handleUseFor5Mins}
+        onShowAgain={handleShowAgain}
       />
       
       {/* Background Image with Enhanced Overlay */}
@@ -63,6 +87,14 @@ export default function SynapseApp() {
           <div className="flex flex-col gap-2 md:gap-2.5 lg:gap-3 w-full md:w-80 lg:w-96 xl:w-[26rem] flex-shrink-0">
             {/* Action Buttons */}
             <SynapseActions />
+
+            {/* Test Button for Block Modal */}
+            <button
+              onClick={handleTriggerBlockModal}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+            >
+              Test Block Modal
+            </button>
 
             {/* Enhanced Stats Grid */}
             <SynapseStatsGrid />
