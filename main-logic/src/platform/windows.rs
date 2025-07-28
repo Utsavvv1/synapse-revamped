@@ -8,6 +8,18 @@ use windows::{
 
 use std::ffi::{CStr, CString};
 use crate::error::SynapseError;
+use once_cell::sync::OnceCell;
+use std::sync::{Arc, Mutex};
+
+static EMIT_CALLBACK: OnceCell<Box<dyn Fn(&str) -> Result<(), String> + Send + Sync>> = OnceCell::new();
+
+pub fn set_distraction_callback<F>(callback: F) 
+where 
+    F: Fn(&str) -> Result<(), String> + Send + Sync + 'static 
+{
+    let _ = EMIT_CALLBACK.set(Box::new(callback));
+}
+
 
 /// Gets the name of the foreground process on Windows.
 ///
@@ -87,6 +99,20 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
 /// # Errors
 /// Returns `SynapseError` if the popup cannot be shown.
 pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
+    // Try to emit Tauri event first
+    if let Some(callback) = EMIT_CALLBACK.get() {
+        match callback(app_name) {
+            Ok(_) => {
+                println!("Successfully emitted distraction event for: {}", app_name);
+                return Ok(());
+            }
+            Err(e) => {
+                println!("Failed to emit distraction event: {}, falling back to MessageBox", e);
+            }
+        }
+    }
+    
+    // Fallback to Windows MessageBox if Tauri event fails
     unsafe {
         let title = CString::new("Distraction Detected!")
             .map_err(|e| SynapseError::Platform(format!("CString failed: {}", e)))?;

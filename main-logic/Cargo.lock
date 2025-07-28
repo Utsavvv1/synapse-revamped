@@ -895,6 +895,7 @@ dependencies = [
  "env_logger",
  "log",
  "notify",
+ "once_cell",
  "reqwest",
  "rusqlite",
  "serde",
