@@ -1,4 +1,6 @@
 import { Play, Edit3, AlertOctagon, BarChart3, Zap, Target } from 'lucide-react'
+import { useEffect } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import SynapseHeader from "../layouts/SynapseHeader"
 import SynapseHero from "./SynapseHero"
 import SynapseActions from "../components/SynapseActions";
@@ -26,6 +28,31 @@ export default function SynapseApp() {
     hour: "2-digit",
     minute: "2-digit",
   })
+
+  // Set up distraction event listener
+  useEffect(() => {
+    let unlisten;
+    
+    const setupListener = async () => {
+      try {
+        unlisten = await listen('show-distraction-modal', (event) => {
+          console.log('🚫 Distraction detected:', event.payload);
+          showBlockModal(); // Show your custom modal!
+        });
+        console.log('✅ Distraction event listener set up');
+      } catch (error) {
+        console.error('❌ Failed to set up distraction listener:', error);
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [showBlockModal]);
 
   // Handler to trigger notification
   const handleFocusStart = () => {

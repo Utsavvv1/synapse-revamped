@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Edit3, AlertOctagon, X, Check } from "lucide-react"
-
+import AppBlockModal from "./AppBlockModal"
 /**
  * Dropdown component used by both Focus and Distraction app buttons.
  */
@@ -134,6 +134,19 @@ export default function SynapseActions() {
   // Refs for dropdown click detection
   const focusDropdownRef = useRef(null)
   const distractionDropdownRef = useRef(null)
+
+  // Check if we're in modal mode - MOVED AFTER state declarations
+  if (window.location.hash === '#modal') {
+    return (
+      <AppBlockModal
+        isVisible={true}
+        onClose={() => window.__TAURI__.window.getCurrent().close()}
+        onUseFor5Mins={() => window.__TAURI__.window.getCurrent().close()}
+        onShowAgain={() => window.__TAURI__.window.getCurrent().close()}
+      />
+    );
+  }
+
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -294,4 +307,3 @@ export default function SynapseActions() {
     </div>
   )
 }
-

@@ -3,7 +3,7 @@ use dotenvy;
 use std::thread;
 use tauri::{Manager, Emitter};
 use std::sync::{Arc, Mutex};
-
+use tauri::{AppHandle, window::WindowBuilder, WebviewWindowBuilder, WebviewUrl};
 
 static TAURI_APP: once_cell::sync::OnceCell<Arc<Mutex<tauri::AppHandle>>> = once_cell::sync::OnceCell::new();
 
@@ -58,7 +58,7 @@ fn handle_distraction_modal_action(action: String, app_name: String) -> Result<S
     
     match action.as_str() {
         "close_app" => {
-            // In a real implementation, we'll close the app
+            // In a real implementation, you could try to close the app
             // For now, just return success
             Ok(format!("Closed app: {}", app_name))
         }
@@ -73,21 +73,39 @@ fn handle_distraction_modal_action(action: String, app_name: String) -> Result<S
     }
 }
 
+
+// Add this helper function to create a separate modal window
+
+
+// Add this helper function to create a separate modal window
 pub fn emit_distraction_event(app_name: &str) -> Result<(), String> {
     if let Some(app_handle) = TAURI_APP.get() {
         if let Ok(handle) = app_handle.lock() {
-            let payload = serde_json::json!({
-                "app_name": app_name,
-                "timestamp": std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-            });
+            // Create a new window for the modal
+            let window_label = format!("distraction-modal-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
             
-            handle.emit("distraction-detected", payload)
-                .map_err(|e| format!("Failed to emit event: {}", e))?;
             
-            println!("Emitted distraction event for: {}", app_name);
+            let window = WebviewWindowBuilder::new(
+                &*handle,
+                &window_label,
+                WebviewUrl::App("modal.html".into())  // ✅ use modal.html, not /#modal
+            )
+            .title("Distraction Alert")
+            .inner_size(400.0, 300.0)
+            .center()
+            .resizable(false)
+            .always_on_top(true)
+            .decorations(false)
+            .transparent(true)
+            .build()
+            .map_err(|e| format!("Failed to create modal window: {}", e))?;
+
+            // Send the app name to the new window
+            window.emit("show-distraction-modal", serde_json::json!({
+                "app_name": app_name
+            })).map_err(|e| format!("Failed to emit to modal window: {}", e))?;
+            
+            println!("Created distraction modal window for: {}", app_name);
             return Ok(());
         }
     }
@@ -96,6 +114,7 @@ pub fn emit_distraction_event(app_name: &str) -> Result<(), String> {
 
 
 
+// Modify your existing run() function to store the app handle and add the new command
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::from_filename(".env").ok();
@@ -107,7 +126,7 @@ pub fn run() {
             
             // Start backend main logic in a background thread
             thread::spawn(|| {
-                main_logic::run_backend();
+                main_logic::run_backend_with_emit(emit_distraction_event);
             });
             if cfg!(debug_assertions) {
                 app.handle().plugin(

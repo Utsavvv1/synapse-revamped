@@ -1,7 +1,7 @@
 {
   "$schema": "../ui/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synapse",
-  "version": "0.1.0", 
+  "version": "0.1.0",
   "identifier": "com.tauri.synapse",
   "build": {
     "beforeDevCommand": "npm --prefix ui run dev",
@@ -33,6 +33,7 @@
           "windows": ["*"],
           "permissions": [
             "core:event:allow-listen",
+            "core:event:default",
             "core:window:allow-close",
             "core:window:allow-hide",
             "core:window:allow-show",

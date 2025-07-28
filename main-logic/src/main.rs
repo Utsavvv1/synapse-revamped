@@ -13,7 +13,6 @@ mod sync;
 use notify::{RecommendedWatcher, RecursiveMode, Event, EventKind, Watcher};
 use std::sync::mpsc::channel;
 use std::path::Path;
-
 use session::SessionManager;
 use metrics::Metrics;
 use apprules::AppRules;
@@ -24,6 +23,11 @@ use sync::{SupabaseSync, SyncStatus};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::Duration;
+use crate::platform::set_distraction_callback;
+
+
+
+
 
 #[tokio::main]
 async fn main() {

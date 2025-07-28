@@ -10,7 +10,6 @@ use std::time::Duration;
 use notify::{RecommendedWatcher, RecursiveMode, Event, EventKind, Watcher};
 use std::sync::mpsc::channel;
 use std::path::Path;
-
 // Make modules public so users can access sub-items if needed.
 pub mod apprules;
 pub mod db;
@@ -199,4 +198,21 @@ pub async fn backend_main_loop() {
 pub fn run_backend() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
     rt.block_on(backend_main_loop());
+}
+
+pub fn run_backend_with_emit<F>(emit_fn: F) 
+where 
+    F: Fn(&str) -> Result<(), String> + Send + Sync + 'static 
+{
+    // Set up the distraction callback
+    crate::platform::set_distraction_callback(move |app_name: &str| {
+        println!("🚫 Distraction callback called for: {}", app_name);
+        emit_fn(app_name)
+    });
+    
+    // Your existing main() function code...
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+    rt.block_on(async {
+        backend_main_loop().await;
+    });
 } 

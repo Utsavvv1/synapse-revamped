@@ -319,6 +319,7 @@ impl SessionManager {
                 session.distraction_attempts += 1;
             }
             if self.current_session.is_some() && self.last_distraction_app.as_deref() != Some(proc_name) {
+                println!("DEBUG: About to call show_distraction_popup for: {}", proc_name); 
                 show_distraction_popup(proc_name)
                     .map_err(|e| SynapseError::Platform(format!("Failed to show distraction popup: {}", e)))?;
                 self.last_distraction_app = Some(proc_name.to_string());
