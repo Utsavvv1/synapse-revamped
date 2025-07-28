@@ -78,6 +78,12 @@ fn get_installed_apps_cmd() -> Vec<(String, String)> {
     main_logic::api::get_installed_apps_api()
 }
 
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn get_installed_apps_cmd() -> Vec<(String, String)> {
+    println!("[TAURI] Linux get_installed_apps_cmd called");
+    main_logic::api::get_installed_apps_api()
+}
 #[tauri::command]
 fn update_app_rules_cmd(whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), String> {
   println!("update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}", whitelist, blacklist);
@@ -117,6 +123,7 @@ pub fn run() {
             total_focus_sessions_today_cmd,
             start_focus_mode_cmd,
         #[cfg(target_os = "windows")] get_installed_apps_cmd,
+        #[cfg(target_os = "linux")] get_installed_apps_cmd,
             update_app_rules_cmd,
             start_monitoring_cmd,
             stop_monitoring_cmd,

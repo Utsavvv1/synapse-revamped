@@ -3,8 +3,7 @@
 use crate::db::DbHandle;
 use crate::error::SynapseError;
 use std::time::{SystemTime, UNIX_EPOCH};
-use winreg::enums::*;
-use winreg::RegKey;
+
 
 /// Returns the total focus time (in seconds) for today.
 pub fn total_focus_time_today(db: &DbHandle) -> Result<i64, SynapseError> {
@@ -35,6 +34,8 @@ pub fn total_focus_sessions_today(db: &DbHandle) -> Result<i64, SynapseError> {
     let count: Option<i64> = stmt.query_row([start_of_day, end_of_day], |row| row.get(0)).ok();
     Ok(count.unwrap_or(0))
 }
+
+
 
 #[cfg(target_os = "windows")]
 /// Returns a list of installed (app_name, exe_name) tuples from the Windows registry.
@@ -120,3 +121,77 @@ impl DbConn for DbHandle {
         &self.conn
     }
 } 
+
+#[cfg(target_os = "linux")]
+pub fn get_installed_apps_api() -> Vec<(String, String)> {
+    use std::collections::HashSet;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    log::debug!("[TAURI] Linux get_installed_apps_api called");
+    fn extract_exe_name(exec_line: &str) -> Option<String> {
+        // Take the first token (before any whitespace or placeholder %)
+        let cmd = exec_line
+            .split_whitespace()
+            .find(|&s| !s.starts_with('%'))?;
+        // If it's an absolute path, extract file name, otherwise use as-is
+        let file_name = Path::new(cmd)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(cmd);
+        Some(file_name.to_string())
+    }
+
+    fn parse_desktop_file(path: &Path) -> Option<(String, String)> {
+        let content = fs::read_to_string(path).ok()?;
+        let mut name = None;
+        let mut exec = None;
+
+        for line in content.lines() {
+            if let Some(rest) = line.strip_prefix("Name=") {
+                name = Some(rest.trim().to_string());
+            } else if let Some(rest) = line.strip_prefix("Exec=") {
+                exec = Some(rest.trim().to_string());
+            }
+            if name.is_some() && exec.is_some() {
+                break;
+            }
+        }
+
+        let name = name?;
+        let exec = exec?;
+        let exe_name = extract_exe_name(&exec)?;
+        Some((name, exe_name))
+    }
+
+    let mut apps = Vec::new();
+    let mut seen = HashSet::new();
+    let desktop_dirs = [
+        PathBuf::from("/usr/share/applications"),
+        PathBuf::from("/usr/local/share/applications"),
+        dirs::home_dir()
+            .map(|h| h.join(".local/share/applications"))
+            .unwrap_or_else(|| PathBuf::from("/nonexistent")),
+    ];
+
+    for dir in &desktop_dirs {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("desktop") {
+                    if let Some((app_name, exe_name)) = parse_desktop_file(&path) {
+                        // dedupe by (app_name, exe_name)
+                        if seen.insert((app_name.clone(), exe_name.clone())) {
+                            apps.push((app_name, exe_name));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by display name
+    apps.sort_by(|a, b| a.0.cmp(&b.0));
+    log::debug!("Found {} installed apps", apps.len());
+    apps
+}
+

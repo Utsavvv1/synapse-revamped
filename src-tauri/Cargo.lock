@@ -2152,6 +2152,7 @@ name = "main-logic"
 version = "0.1.0"
 dependencies = [
  "ctrlc",
+ "dirs",
  "dotenvy",
  "env_logger",
  "log",
