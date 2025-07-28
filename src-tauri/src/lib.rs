@@ -1,6 +1,11 @@
 use main_logic::{DbHandle, api, apprules}; // Added apprules
 use dotenvy;
 use std::thread;
+use tauri::{Manager, Emitter};
+use std::sync::{Arc, Mutex};
+
+
+static TAURI_APP: once_cell::sync::OnceCell<Arc<Mutex<tauri::AppHandle>>> = once_cell::sync::OnceCell::new();
 
 #[tauri::command]
 fn total_focus_time_today_cmd() -> Result<i64, String> {
@@ -46,24 +51,71 @@ fn start_focus_mode_cmd() -> Result<String, String> {
     Ok("Focus mode started".to_string())
 }
 
+
+#[tauri::command]
+fn handle_distraction_modal_action(action: String, app_name: String) -> Result<String, String> {
+    println!("Distraction modal action: {} for app: {}", action, app_name);
+    
+    match action.as_str() {
+        "close_app" => {
+            // In a real implementation, we'll close the app
+            // For now, just return success
+            Ok(format!("Closed app: {}", app_name))
+        }
+        "use_5_mins" => {
+            // In a real implementation, you could start a 5-minute timer
+            Ok(format!("Allowing {} for 5 minutes", app_name))
+        }
+        "show_again" => {
+            Ok(format!("Will show modal again for {}", app_name))
+        }
+        _ => Err("Unknown action".to_string())
+    }
+}
+
+pub fn emit_distraction_event(app_name: &str) -> Result<(), String> {
+    if let Some(app_handle) = TAURI_APP.get() {
+        if let Ok(handle) = app_handle.lock() {
+            let payload = serde_json::json!({
+                "app_name": app_name,
+                "timestamp": std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            });
+            
+            handle.emit("distraction-detected", payload)
+                .map_err(|e| format!("Failed to emit event: {}", e))?;
+            
+            println!("Emitted distraction event for: {}", app_name);
+            return Ok(());
+        }
+    }
+    Err("Tauri app handle not available".to_string())
+}
+
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::from_filename(".env").ok();
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
+            // Store the app handle for later use
+            TAURI_APP.set(Arc::new(Mutex::new(app.handle().clone())))
+                .map_err(|_| "Failed to set app handle")?;
+            
             // Start backend main logic in a background thread
             thread::spawn(|| {
                 main_logic::run_backend();
             });
             if cfg!(debug_assertions) {
-                _app.handle().plugin(
+                app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
             }
-            // Example usage of main-logic crate
-            // main_logic::some_function();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,6 +123,7 @@ pub fn run() {
             total_distractions_today_cmd,
             total_focus_sessions_today_cmd,
             start_focus_mode_cmd,
+            handle_distraction_modal_action,  // Add this new command
         #[cfg(target_os = "windows")] get_installed_apps_cmd,
             update_app_rules_cmd
         ])

@@ -115,6 +115,7 @@ dependencies = [
  "dotenvy",
  "log",
  "main-logic",
+ "once_cell",
  "serde",
  "serde_json",
  "tauri",
