@@ -1,4 +1,7 @@
 use main_logic::{db::DbHandle, api};
+use main_logic::platform::get_foreground_process_name;
+use main_logic::platform::list_running_process_names;
+
 use dotenvy;
 
 fn main() {
@@ -22,5 +25,7 @@ fn main() {
         Ok(session_count) => println!("Focus sessions today: {}", session_count),
         Err(e) => eprintln!("Error: {:?}", e),
     }
-    println!("{:?}", api::get_installed_apps_api());
+    // println!("{:?}", api::get_installed_apps_api());
+    println!("{:?}", get_foreground_process_name());
+    // println!("{:?}", list_running_process_names());
 } 

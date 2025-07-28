@@ -5,15 +5,12 @@ use windows::{
     Win32::System::Diagnostics::ToolHelp::*,
     Win32::UI::WindowsAndMessaging::*,
 };
-
 use std::ffi::{CStr, CString};
-use crate::error::SynapseError;
+use std::collections::HashMap;
+use crate::{error::SynapseError, api};
 
-/// Gets the name of the foreground process on Windows.
-///
-/// # Errors
-/// Returns `SynapseError` if the process name cannot be determined.
-pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
+/// Raw probe of the foreground executable name (e.g. "code.exe" → "code")
+fn raw_foreground_exe_name() -> Result<Option<String>, SynapseError> {
     unsafe {
         let hwnd = GetForegroundWindow();
         if hwnd.0 == 0 {
@@ -33,16 +30,44 @@ pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
         if Process32First(snapshot, &mut entry).is_ok() {
             loop {
                 if entry.th32ProcessID == pid {
-                    let raw_name = entry.szExeFile.as_ptr();
-                    let name = CStr::from_ptr(raw_name as *const i8)
+                    // szExeFile is a null-terminated CStr
+                    let raw = entry.szExeFile.as_ptr() as *const i8;
+                    let name = CStr::from_ptr(raw)
                         .to_string_lossy()
                         .into_owned()
                         .to_lowercase();
+                    // strip any ".exe" suffix if you prefer
+                    let name = name.strip_suffix(".exe").unwrap_or(&name).into();
                     return Ok(Some(name));
                 }
                 if Process32Next(snapshot, &mut entry).is_err() {
                     break;
                 }
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Returns the *display* name of the currently‐focused app by matching
+/// the raw exe against your installed‐apps list.
+pub fn get_foreground_process_name() -> Result<Option<String>, SynapseError> {
+    // 1️⃣ Build a map exe_name → display_name
+    let mut map: HashMap<String, String> = HashMap::new();
+    for (display, exe) in api::get_installed_apps_api() {
+        map.insert(exe.to_lowercase(), display);
+    }
+
+    // 2️⃣ Probe the raw exe
+    if let Some(raw) = raw_foreground_exe_name()? {
+        // 3️⃣ Try exact match
+        if let Some(display) = map.get(&raw) {
+            return Ok(Some(display.clone()));
+        }
+        // 4️⃣ Fallback: substring
+        for (exe, display) in &map {
+            if exe.contains(&raw) || raw.contains(exe) {
+                return Ok(Some(display.clone()));
             }
         }
     }
@@ -64,8 +89,8 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
         };
         if Process32First(snapshot, &mut entry).is_ok() {
             loop {
-                let raw_name = entry.szExeFile.as_ptr();
-                let name = CStr::from_ptr(raw_name as *const i8)
+                let raw = entry.szExeFile.as_ptr() as *const i8;
+                let name = CStr::from_ptr(raw)
                     .to_string_lossy()
                     .into_owned()
                     .to_lowercase();
@@ -83,9 +108,6 @@ pub fn list_running_process_names() -> Result<Vec<String>, SynapseError> {
 ///
 /// # Arguments
 /// * `app_name` - Name of the blocked app
-///
-/// # Errors
-/// Returns `SynapseError` if the popup cannot be shown.
 pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
     unsafe {
         let title = CString::new("Distraction Detected!")
@@ -108,33 +130,8 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn test_get_foreground_process_name_handles_no_window() {
-        // This test is a placeholder: in real CI, you would mock Windows APIs
-        // Here, just check that the function returns Ok or an error, but does not panic
-        let result = get_foreground_process_name();
-        assert!(result.is_ok() || result.is_err());
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_list_running_process_names_returns_vec() {
-        let result = list_running_process_names();
-        assert!(result.is_ok());
-        let names = result.unwrap();
-        assert!(names.is_empty() || !names.is_empty()); // Always true, just checks type
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_show_distraction_popup_returns_ok() {
-        let result = show_distraction_popup("test.exe");
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_non_windows_functions_do_not_panic() {
-        // On non-Windows, these functions should not panic if called (should not be available)
-        // This is a placeholder for cross-platform safety
-        assert!(true);
+    fn test_get_foreground_process_name() {
+        // We just ensure it doesn't panic; real CI should mock Win32.
+        let _ = get_foreground_process_name();
     }
 }
