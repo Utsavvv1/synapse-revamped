@@ -1,0 +1,286 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    
+    --background: 0 0% 100%; /* Main background color (light mode) */
+    --foreground: var(--secondarycolor); /* Main text color (light mode) */
+    --card: 0 0% 100%; /* Card background color */
+    --card-foreground: var(--secondarycolor); /* Card text color */
+    --popover: 0 0% 100%; /* Popover background color */
+    --popover-foreground: var(--secondarycolor); /* Popover text color */
+    --primary: var(--secondarycolor); /* Primary brand color (buttons, highlights) */
+    --primary-foreground: 0 0% 100%; /* Text on primary color */
+    --secondary: var(--primarycolor); /* Secondary accent color */
+    --secondary-foreground: var(--secondarycolor); /* Text on secondary color */
+    --muted: 210 40% 96.1%; /* Muted background (inputs, subtle UI) */
+    --muted-foreground: 172 30% 40%; /* Muted text color */
+    --accent: var(--primarycolor); /* Accent color (used for highlights, links) */
+    --accent-foreground: var(--secondarycolor); /* Text on accent color */
+    --destructive: 0 84.2% 60.2%; /* Error/destructive color (e.g., delete) */
+    --destructive-foreground: 210 40% 98%; /* Text on destructive color */
+    --border: 214.3 31.8% 91.4%; /* Border color for UI elements */
+    --input: 214.3 31.8% 91.4%; /* Input background/border color */
+    --ring: var(--secondarycolor); /* Focus ring color */
+    --radius: 0.5rem; /* Border radius for rounded elements */
+    /* Synapse specific colors */
+    --synapse-dark: var(--secondarycolor); /* Synapse brand dark color (used for text, icons) */
+    --synapse-dark-alt: 172 56% 10%; /* Synapse dark alternative (cards, backgrounds) */
+    --synapse-accent: var(--primarycolor); /* Synapse accent color (buttons, highlights) */
+    --synapse-glass: 0 0% 46%; /* Glass effect overlay color */
+    --synapse-glass-opacity: 0.31; /* Opacity for glass effect */
+    --synapse-text-light: 0 0% 95%; /* Light text color for dark backgrounds */
+    --synapse-bg-image: url('/images/rice-terraces-bg.jpg'); /* Synapse app background image */
+  }
+  .dark {
+    --background: var(--secondarycolor); /* Main background color (dark mode) */
+    --foreground: 0 0% 95%; /* Main text color (dark mode) */
+    --card: var(--secondarycolor); /* Card background color (dark mode) */
+    --card-foreground: 0 0% 95%; /* Card text color (dark mode) */
+    --popover: var(--secondarycolor); /* Popover background color (dark mode) */
+    --popover-foreground: 0 0% 95%; /* Popover text color (dark mode) */
+    --primary: var(--primarycolor); /* Primary brand color (dark mode) */
+    --primary-foreground: var(--secondarycolor); /* Text on primary color (dark mode) */
+    --secondary: 172 56% 10%; /* Secondary accent color (dark mode) */
+    --secondary-foreground: 0 0% 95%; /* Text on secondary color (dark mode) */
+    --muted: 172 56% 10%; /* Muted background (dark mode) */
+    --muted-foreground: 0 0% 70%; /* Muted text color (dark mode) */
+    --accent: var(--primarycolor); /* Accent color (dark mode) */
+    --accent-foreground: var(--secondarycolor); /* Text on accent color (dark mode) */
+    --destructive: 0 62.8% 30.6%; /* Error/destructive color (dark mode) */
+    --destructive-foreground: 0 0% 95%; /* Text on destructive color (dark mode) */
+    --border: 172 56% 10%; /* Border color (dark mode) */
+    --input: 172 56% 10%; /* Input background/border color (dark mode) */
+    --ring: var(--primarycolor); /* Focus ring color (dark mode) */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Wix Madefor Text", system-ui, sans-serif;
+    font-weight: 500;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.12); /* Glassmorphism card background (light) */
+    backdrop-filter: blur(24px); /* Blur effect for glassmorphism */
+    -webkit-backdrop-filter: blur(24px); /* Safari support for blur */
+    border: 1px solid rgba(255, 255, 255, 0.18); /* Subtle border for glass card */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.15); /* Card shadow */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth transition for hover */
+  }
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.16); /* Slightly brighter on hover */
+    transform: translateY(-2px); /* Lift effect on hover */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2); /* Stronger shadow on hover */
+  }
+  .glass-card-dark {
+    background: rgba(0, 0, 0, 0.45); /* Glassmorphism card background (dark) */
+    backdrop-filter: blur(24px); /* Blur effect for glassmorphism */
+    -webkit-backdrop-filter: blur(24px); /* Safari support for blur */
+    border: 1px solid rgba(255, 255, 255, 0.12); /* Subtle border for glass card (dark) */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); /* Card shadow (dark) */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth transition for hover */
+  }
+  .glass-card-dark:hover {
+    background: rgba(0, 0, 0, 0.55); /* Slightly darker on hover */
+    
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15); /* Stronger shadow on hover */
+
+  }
+  .hero-text {
+    letter-spacing: -0.07em; /* Tight letter spacing for hero headings */
+  }
+  .body-text {
+    letter-spacing: -0.01em; /* Slightly tight letter spacing for body text */
+  }
+  .phone-connected {
+    background: rgba(0, 0, 0, 0.75); /* Background for phone connection status */
+    backdrop-filter: blur(16px); /* Blur effect for phone connection */
+    -webkit-backdrop-filter: blur(16px); /* Safari support for blur */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border for phone connection */
+  }
+  .pulse-dot {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; /* Green pulsing dot animation */
+  }
+  .glow-accent {
+    box-shadow: 0 0 20px hsl(var(--primarycolor)), 0 0 40px rgba(212, 232, 77, 0.1); /* Glowing accent shadow */
+  }
+  .glow-accent:hover {
+    box-shadow: 0 0 30px hsl(var(--primarycolor)), 0 0 60px rgba(212, 232, 77, 0.2); /* Stronger glow on hover */
+  }
+  .progress-bar {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.1) 100%
+    ); /* Subtle gradient for progress bar background */
+    backdrop-filter: blur(10px); /* Blur effect for progress bar */
+    -webkit-backdrop-filter: blur(10px); /* Safari support for blur */
+  }
+  .progress-fill {
+    background: linear-gradient(90deg, hsl(var(--synapse-dark)) 0%, hsl(var(--synapse-accent)) 100%); /* Gradient fill for progress bar */
+    box-shadow: 0 0 10px hsl(var(--primarycolor)); /* Glow for progress fill */
+  }
+  .button-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth transition for button hover */
+  }
+  .button-hover:hover {
+    transform: translateY(-2px) scale(1.02); /* Slight lift and scale on hover */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); /* Button shadow on hover */
+  }
+  .button-accent-hover:hover {
+    transform: translateY(-2px) scale(1.02); /* Slight lift and scale on hover (accent) */
+    box-shadow: 0 8px 25px hsl(var(--primarycolor)); /* Accent color shadow on hover */
+  }
+  @keyframes pulse-green {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.1);
+    }
+  } /* Animation for pulsing green dot (phone connected) */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  } /* Animation for shimmer effect (loading, highlights) */
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); /* Shimmer gradient */
+    background-size: 200% 100%; /* Shimmer background size */
+    animation: shimmer 3s ease-in-out infinite; /* Shimmer animation */
+  }
+
+  /* Custom scrollbar styles for dropdown */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px; /* Thin scrollbar width */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1); /* Track background */
+    border-radius: 2px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3); /* Default thumb color */
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.5); /* Hover thumb color */
+  }
+
+  /* Theme-specific scrollbar colors */
+  .bg-synapse-accent .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--synapse-dark) / 0.4); /* Dark thumb for accent bg */
+  }
+
+  .bg-synapse-accent .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--synapse-dark) / 0.6); /* Darker on hover */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--synapse-accent) / 0.4); /* Accent thumb for dark bg */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--synapse-accent) / 0.6); /* Brighter on hover */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--synapse-accent) / 0.1); /* Accent track for dark bg */
+  }
+
+  /* Enhanced dropdown styling for professional look */
+  .dropdown-item-hover {
+    @apply hover:bg-accent hover:text-accent-foreground;
+  }
+
+  /* Focus ring styles similar to shadcn */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  /* Professional search input styling */
+  .search-input {
+    @apply border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* Professional dropdown animations */
+  .dropdown-enter {
+    animation: dropdown-in 200ms ease-out forwards;
+  }
+
+  .dropdown-exit {
+    animation: dropdown-out 150ms ease-in forwards;
+  }
+
+  .dropdown-content-enter {
+    animation: dropdown-content-in 250ms ease-out 50ms both;
+  }
+
+  .dropdown-item-enter {
+    animation: dropdown-item-in 200ms ease-out both;
+  }
+
+  @keyframes dropdown-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes dropdown-out {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+  }
+
+  @keyframes dropdown-content-in {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes dropdown-item-in {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}

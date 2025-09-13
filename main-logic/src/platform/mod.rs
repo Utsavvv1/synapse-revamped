@@ -1,3 +1,5 @@
+//! Platform abstraction module: re-exports platform-specific process and popup utilities for the current OS.
+
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]

@@ -1,0 +1,56 @@
+# Node
+node_modules/
+dist/
+build/
+.env
+.env.*
+
+# Rust
+/target/
+Cargo.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# Editor/IDE
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+*.swp
+*.bak
+*.tmp
+*.log
+
+# Tauri
+/src-tauri/target/
+/src-tauri/Cargo.lock
+
+# Backup
+*.backup
+
+# Others
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Existing entries
+.config/
+.vscode
+
+synapse_metrics.db
+
+!.env.example
