@@ -1,5 +1,6 @@
 //! Main application entry point and logic loop.
 mod error;
+mod api;
 mod session;
 mod metrics;
 mod apprules;
