@@ -26,7 +26,8 @@ impl AppRules {
     /// # Errors
     /// Returns `SynapseError` if the file cannot be read or parsed.
     pub fn new() -> Result<Self, SynapseError> {
-        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+        dotenvy::from_filename("../.env").ok();
+        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
         let path = Path::new(&path_str);
         if path.exists() {
             let contents = fs::read_to_string(path)
@@ -101,8 +102,9 @@ impl AppRules {
                 log::error!("[DEBUG] Failed to serialize app rules: {}", e);
                 SynapseError::Config(format!("Failed to serialize app rules: {}", e))
             })?;
-        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
         let path = Path::new(&path_str);
+        println!("[DEBUG] Writing rules to: {}", path.display());
 
         log::info!("[DEBUG] Writing rules to: {}", path.display());
         fs::write(path, json)
@@ -240,7 +242,7 @@ mod tests {
         let new_blacklist = vec!["discord.exe".to_string()];
         rules.update_rules(new_whitelist, new_blacklist).unwrap();
 
-        let path = Path::new("test_apprules.json");
+        let path = Path::new("../apprules.json");
         let contents = fs::read_to_string(path).unwrap();
         let parsed: AppRulesFile = serde_json::from_str(&contents).unwrap();
         assert_eq!(parsed.whitelist, vec!["emacs.exe"]);
