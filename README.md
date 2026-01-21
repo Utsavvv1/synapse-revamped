@@ -58,7 +58,7 @@ Synapse is a sophisticated focus management tool built with Rust and React that 
 *Serene rice terraces background with vibrant lime accent*
 
 ### Focus Mode States
-| Focus Off | Focus On | Distraction Alert |
+| Focus On | Focus Off | Distraction Alert |
 |-----------|----------|-------------------|
 | ![Focus On](assets/mobile-home.png) | ![Focus Off](assets/Frame%2022.png) | ![Alert](assets/desk9.png) |
 
