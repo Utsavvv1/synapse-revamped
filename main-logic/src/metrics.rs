@@ -1,10 +1,10 @@
 //! Metrics module: tracks and summarizes app usage, blocked events, and session statistics.
 
-use std::collections::HashMap;
-use std::time::{Instant};
-use crate::session::SessionManager;
-use crate::error::SynapseError;
 use crate::constants::SUMMARY_INTERVAL_SECS;
+use crate::error::SynapseError;
+use crate::session::SessionManager;
+use std::collections::HashMap;
+use std::time::Instant;
 
 /// Tracks metrics for app usage and focus sessions.
 pub struct Metrics {
@@ -90,7 +90,7 @@ impl Metrics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::{SessionManager, FocusSession};
+    use crate::session::{FocusSession, SessionManager};
     use std::time::{Instant, SystemTime};
 
     fn setup_metrics() -> Metrics {
@@ -115,10 +115,14 @@ mod tests {
             crate::apprules::AppRules::test_with_rules(vec!["notepad.exe".to_string()], vec![]),
             crate::db::DbHandle::test_in_memory(),
             None,
+            None,
         );
         mgr.set_last_checked_process("notepad.exe".to_string());
         mgr.set_last_blocked(false);
-        mgr.set_current_session(FocusSession::new(SystemTime::now(), vec!["notepad.exe".to_string(), "word.exe".to_string()]));
+        mgr.set_current_session(FocusSession::new(
+            SystemTime::now(),
+            vec!["notepad.exe".to_string(), "word.exe".to_string()],
+        ));
         metrics.update_from_session(&mgr);
         assert_eq!(metrics.total_checks, 1);
         assert_eq!(*metrics.app_frequency.get("notepad.exe").unwrap(), 2); // once from last_checked_process, once from work_apps

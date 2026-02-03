@@ -1,29 +1,32 @@
 //! Main application entry point and logic loop.
-mod error;
-mod session;
-mod metrics;
 mod apprules;
-mod platform;
-mod logger;
-mod db;
-mod graceful_shutdown;
-mod types;
 mod constants;
+mod db;
+mod error;
+mod graceful_shutdown;
+mod logger;
+mod metrics;
+mod platform;
+mod session;
 mod sync;
-use notify::{RecommendedWatcher, RecursiveMode, Event, EventKind, Watcher};
-use std::sync::mpsc::channel;
+mod types;
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
+use std::sync::mpsc::channel;
 
-use session::SessionManager;
-use metrics::Metrics;
 use apprules::AppRules;
+use constants::MAIN_LOOP_SLEEP_MS;
 use db::DbHandle;
 use logger::{log_error, log_error_with_context};
-use constants::MAIN_LOOP_SLEEP_MS;
-use sync::{SupabaseSync, SyncStatus};
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use metrics::Metrics;
+use session::SessionManager;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 use std::time::Duration;
+use sync::{SupabaseSync, SyncStatus};
 
 #[tokio::main]
 async fn main() {
@@ -52,8 +55,16 @@ async fn main() {
     // Set up a Tokio runtime for async tasks
     // let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime"); // This line is removed as per edit hint
 
-    println!("Constructing SessionManager with supabase_sync: {}", supabase_sync.is_some());
-    let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
+    println!(
+        "Constructing SessionManager with supabase_sync: {}",
+        supabase_sync.is_some()
+    );
+    let session_mgr = Arc::new(Mutex::new(SessionManager::new(
+        apprules.clone(),
+        db_handle,
+        supabase_sync.clone(),
+        None,
+    )));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
     // --- File watcher for apprules.json ---
@@ -62,26 +73,33 @@ async fn main() {
         let shutdown_flag = shutdown_flag.clone();
         thread::spawn(move || {
             let (tx, rx) = channel();
-            let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+            let path_str =
+                std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
             let path = Path::new(&path_str);
-            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default()).expect("Failed to create watcher");
-            watcher.watch(path, RecursiveMode::NonRecursive).expect("Failed to watch apprules.json");
+            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
+                .expect("Failed to create watcher");
+            watcher
+                .watch(path, RecursiveMode::NonRecursive)
+                .expect("Failed to watch apprules.json");
             while !shutdown_flag.load(Ordering::SeqCst) {
                 if let Ok(event) = rx.recv_timeout(Duration::from_secs(1)) {
                     match event {
-                        Ok(Event { kind: EventKind::Modify(_), .. }) => {
+                        Ok(Event {
+                            kind: EventKind::Modify(_),
+                            ..
+                        }) => {
                             log::info!("[Watcher] Detected apprules.json change, reloading...");
                             match AppRules::new() {
                                 Ok(new_rules) => {
                                     let mut mgr = session_mgr.lock().unwrap();
                                     mgr.set_apprules(new_rules);
                                     log::info!("[Watcher] AppRules reloaded successfully.");
-                                },
+                                }
                                 Err(e) => {
                                     log::error!("[Watcher] Failed to reload AppRules: {}", e);
                                 }
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -123,15 +141,19 @@ async fn main() {
             // Await the async push
             // REMOVE: push_focus_session_with_status at session end
             // Only update app usage events here
-            // Push app usage events for this 
+            // Push app usage events for this
             let db_handle = mgr.db_handle();
             if let Some(sid) = mgr.session_id().map(|id| id.0) {
                 match db_handle.get_app_usage_events_for_session(sid) {
                     Ok(events) => {
                         if !events.is_empty() {
                             match sync.push_app_usage_events(&events).await {
-                                Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                Ok(_) => {
+                                    println!("[Supabase] App usage events pushed successfully!")
+                                }
+                                Err(e) => {
+                                    eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                }
                             }
                         }
                     }
@@ -167,8 +189,12 @@ async fn main() {
                         Ok(events) => {
                             if !events.is_empty() {
                                 match sync.push_app_usage_events(&events).await {
-                                    Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                    Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                    Ok(_) => {
+                                        println!("[Supabase] App usage events pushed successfully!")
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                    }
                                 }
                             }
                         }
@@ -177,7 +203,7 @@ async fn main() {
                 }
             }
         }
-        Ok(None) => {},
+        Ok(None) => {}
         Err(e) => log_error_with_context("Ending active session", &e),
     }
 }

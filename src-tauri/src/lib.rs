@@ -1,8 +1,12 @@
-use main_logic::{DbHandle, api, apprules}; // Added apprules
 use dotenvy;
+use main_logic::{api, apprules, DbHandle}; // Added apprules
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread::JoinHandle;
+use tauri::Emitter;
 use tauri::State;
 
 // Global state for backend control
@@ -21,15 +25,29 @@ impl BackendState {
 }
 
 #[tauri::command]
-fn start_monitoring_cmd(state: State<BackendState>) -> Result<(), String> {
+fn start_monitoring_cmd(
+    app_handle: tauri::AppHandle,
+    state: State<BackendState>,
+) -> Result<(), String> {
     let mut handle_guard = state.handle.lock().unwrap();
     if handle_guard.is_some() {
         return Ok(()); // Already running
     }
     state.shutdown_flag.store(false, Ordering::SeqCst);
     let shutdown_flag = state.shutdown_flag.clone();
+
+    // Create the callback that will be called when a distraction is detected
+    let app_handle_clone = app_handle.clone();
+    let on_distraction = Some(Box::new(move |app_name: &str| {
+        println!("[Tauri] Distraction detected: {}", app_name);
+        // Emit event to frontend
+        if let Err(e) = app_handle_clone.emit("app-blocked", app_name) {
+            eprintln!("[Tauri] Failed to emit app-blocked event: {}", e);
+        }
+    }) as Box<dyn Fn(&str) + Send + Sync>);
+
     *handle_guard = Some(thread::spawn(move || {
-        main_logic::run_backend_with_shutdown(shutdown_flag);
+        main_logic::run_backend_with_shutdown(shutdown_flag, on_distraction);
     }));
     println!("[Tauri] Backend monitoring started");
     Ok(())
@@ -80,13 +98,19 @@ fn get_installed_apps_cmd() -> Vec<(String, String)> {
 
 #[tauri::command]
 fn update_app_rules_cmd(whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), String> {
-  println!("update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}", whitelist, blacklist);
-  let whitelist_clone = whitelist.clone();
-  let blacklist_clone = blacklist.clone();
-  let result = apprules::update_app_rules(whitelist, blacklist);
-  println!("update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}", whitelist_clone, blacklist_clone);
-  println!("update_app_rules_cmd result: {:?}", result);
-  result.map_err(|e| format!("{:?}", e))
+    println!(
+        "update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}",
+        whitelist, blacklist
+    );
+    let whitelist_clone = whitelist.clone();
+    let blacklist_clone = blacklist.clone();
+    let result = apprules::update_app_rules(whitelist, blacklist);
+    println!(
+        "update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}",
+        whitelist_clone, blacklist_clone
+    );
+    println!("update_app_rules_cmd result: {:?}", result);
+    result.map_err(|e| format!("{:?}", e))
 }
 
 #[tauri::command]
@@ -116,7 +140,8 @@ pub fn run() {
             total_distractions_today_cmd,
             total_focus_sessions_today_cmd,
             start_focus_mode_cmd,
-        #[cfg(target_os = "windows")] get_installed_apps_cmd,
+            #[cfg(target_os = "windows")]
+            get_installed_apps_cmd,
             update_app_rules_cmd,
             start_monitoring_cmd,
             stop_monitoring_cmd,

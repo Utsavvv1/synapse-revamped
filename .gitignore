@@ -54,3 +54,9 @@ pnpm-debug.log*
 synapse_metrics.db
 
 !.env.example
+env
+package-lock.json
+package.json
+src-tauri/apprules.json
+src-tauri/Cargo.toml
+ui/package-lock.json

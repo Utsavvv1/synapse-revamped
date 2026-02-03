@@ -13,14 +13,8 @@ import { useAppBlockModal } from "../hooks/useAppBlockModal"
 
 export default function SynapseApp() {
   const { isVisible, position, triggerNotification } = useFocusNotification(6000);
-  const { 
-    isVisible: isBlockModalVisible, 
-    showModal: showBlockModal, 
-    handleCloseApp, 
-    handleUseFor5Mins,
-    handleShowAgain
-  } = useAppBlockModal();
-  
+  const { showModal: showBlockModal } = useAppBlockModal();
+
   const currentTime = new Date().toLocaleTimeString("en-US", {
     hour12: false,
     hour: "2-digit",
@@ -52,15 +46,7 @@ export default function SynapseApp() {
         bgColor="#D4E84D"
         textColor="#000000"
       />
-      
-      {/* App Block Modal */}
-      <AppBlockModal
-        isVisible={isBlockModalVisible}
-        onClose={handleCloseApp}
-        onUseFor5Mins={handleUseFor5Mins}
-        onShowAgain={handleShowAgain}
-      />
-      
+
       {/* Background Image with Enhanced Overlay */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"

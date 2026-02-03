@@ -4,15 +4,20 @@
 //! including session management, application rule handling, database interaction,
 //! and platform-specific utilities.
 
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::path::Path;
+use std::sync::mpsc::channel;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 use std::time::Duration;
-use notify::{RecommendedWatcher, RecursiveMode, Event, EventKind, Watcher};
-use std::sync::mpsc::channel;
-use std::path::Path;
 
 // Make modules public so users can access sub-items if needed.
+pub mod api;
 pub mod apprules;
+pub mod constants;
 pub mod db;
 pub mod error;
 pub mod graceful_shutdown;
@@ -20,10 +25,8 @@ pub mod logger;
 pub mod metrics;
 pub mod platform;
 pub mod session;
-pub mod types;
-pub mod constants;
 pub mod sync;
-pub mod api;
+pub mod types;
 
 // Re-export key types for a cleaner public API.
 pub use apprules::AppRules;
@@ -31,16 +34,16 @@ pub use db::DbHandle;
 pub use error::SynapseError;
 pub use metrics::Metrics;
 pub use session::{FocusSession, SessionManager};
-pub use types::SessionId; 
+pub use types::SessionId;
 
-pub async fn backend_main_loop() {
+pub async fn backend_main_loop(on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>) {
     dotenvy::from_filename("../.env").ok();
-    use crate::session::SessionManager;
-    use crate::metrics::Metrics;
     use crate::apprules::AppRules;
+    use crate::constants::MAIN_LOOP_SLEEP_MS;
     use crate::db::DbHandle;
     use crate::logger::{log_error, log_error_with_context};
-    use crate::constants::MAIN_LOOP_SLEEP_MS;
+    use crate::metrics::Metrics;
+    use crate::session::SessionManager;
     use crate::sync::{SupabaseSync, SyncStatus};
 
     // Check Supabase connection at startup
@@ -66,8 +69,16 @@ pub async fn backend_main_loop() {
     let supabase_sync = SupabaseSync::from_env(false).ok();
     let sync_status = Arc::new(Mutex::new(SyncStatus::new()));
 
-    println!("Constructing SessionManager with supabase_sync: {}", supabase_sync.is_some());
-    let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
+    println!(
+        "Constructing SessionManager with supabase_sync: {}",
+        supabase_sync.is_some()
+    );
+    let session_mgr = Arc::new(Mutex::new(SessionManager::new(
+        apprules.clone(),
+        db_handle,
+        supabase_sync.clone(),
+        on_distraction,
+    )));
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
     crate::graceful_shutdown::install(session_mgr.clone(), shutdown_flag.clone());
@@ -78,17 +89,24 @@ pub async fn backend_main_loop() {
         let shutdown_flag = shutdown_flag.clone();
         thread::spawn(move || {
             let (tx, rx) = channel();
-            let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
+            let path_str =
+                std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
             let path = Path::new(&path_str);
             println!("[Watcher] Starting file watcher for: {}", path.display());
-            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default()).expect("Failed to create watcher");
-            watcher.watch(path, RecursiveMode::NonRecursive).expect("Failed to watch apprules.json");
+            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
+                .expect("Failed to create watcher");
+            watcher
+                .watch(path, RecursiveMode::NonRecursive)
+                .expect("Failed to watch apprules.json");
             println!("[Watcher] File watcher started successfully");
             while !shutdown_flag.load(Ordering::SeqCst) {
                 if let Ok(event) = rx.recv_timeout(Duration::from_secs(1)) {
                     println!("[Watcher] Received event: {:?}", event);
                     match event {
-                        Ok(Event { kind: EventKind::Modify(_), .. }) => {
+                        Ok(Event {
+                            kind: EventKind::Modify(_),
+                            ..
+                        }) => {
                             log::info!("[Watcher] Detected apprules.json change, reloading...");
                             match AppRules::new() {
                                 Ok(new_rules) => {
@@ -96,13 +114,13 @@ pub async fn backend_main_loop() {
                                     let mut mgr = session_mgr.lock().unwrap();
                                     mgr.set_apprules(new_rules);
                                     log::info!("[Watcher] AppRules reloaded successfully.");
-                                },
+                                }
                                 Err(e) => {
                                     log::error!("[Watcher] Failed to reload AppRules: {}", e);
                                     println!("[Watcher] Failed to reload AppRules: {}", e);
                                 }
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -137,15 +155,19 @@ pub async fn backend_main_loop() {
             // Await the async push
             // REMOVE: push_focus_session_with_status at session end
             // Only update app usage events here
-            // Push app usage events for this 
+            // Push app usage events for this
             let db_handle = mgr.db_handle();
             if let Some(sid) = mgr.session_id().map(|id| id.0) {
                 match db_handle.get_app_usage_events_for_session(sid) {
                     Ok(events) => {
                         if !events.is_empty() {
                             match sync.push_app_usage_events(&events).await {
-                                Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                Ok(_) => {
+                                    println!("[Supabase] App usage events pushed successfully!")
+                                }
+                                Err(e) => {
+                                    eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                }
                             }
                         }
                     }
@@ -181,8 +203,12 @@ pub async fn backend_main_loop() {
                         Ok(events) => {
                             if !events.is_empty() {
                                 match sync.push_app_usage_events(&events).await {
-                                    Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                    Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                    Ok(_) => {
+                                        println!("[Supabase] App usage events pushed successfully!")
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                    }
                                 }
                             }
                         }
@@ -191,29 +217,38 @@ pub async fn backend_main_loop() {
                 }
             }
         }
-        Ok(None) => {},
+        Ok(None) => {}
         Err(e) => log_error_with_context("Ending active session", &e),
     }
 }
 
 pub fn run_backend() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-    rt.block_on(backend_main_loop());
+    rt.block_on(backend_main_loop(None));
 }
 
-pub fn run_backend_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
+pub fn run_backend_with_shutdown(
+    shutdown_flag: Arc<AtomicBool>,
+    on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>,
+) {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-    rt.block_on(backend_main_loop_with_shutdown(shutdown_flag));
+    rt.block_on(backend_main_loop_with_shutdown(
+        shutdown_flag,
+        on_distraction,
+    ));
 }
 
-pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
+pub async fn backend_main_loop_with_shutdown(
+    shutdown_flag: Arc<AtomicBool>,
+    on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>,
+) {
     dotenvy::from_filename("../.env").ok();
-    use crate::session::SessionManager;
-    use crate::metrics::Metrics;
     use crate::apprules::AppRules;
+    use crate::constants::MAIN_LOOP_SLEEP_MS;
     use crate::db::DbHandle;
     use crate::logger::{log_error, log_error_with_context};
-    use crate::constants::MAIN_LOOP_SLEEP_MS;
+    use crate::metrics::Metrics;
+    use crate::session::SessionManager;
     use crate::sync::{SupabaseSync, SyncStatus};
 
     // Check Supabase connection at startup
@@ -239,8 +274,16 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
     let supabase_sync = SupabaseSync::from_env(false).ok();
     let sync_status = Arc::new(Mutex::new(SyncStatus::new()));
 
-    println!("Constructing SessionManager with supabase_sync: {}", supabase_sync.is_some());
-    let session_mgr = Arc::new(Mutex::new(SessionManager::new(apprules.clone(), db_handle, supabase_sync.clone())));
+    println!(
+        "Constructing SessionManager with supabase_sync: {}",
+        supabase_sync.is_some()
+    );
+    let session_mgr = Arc::new(Mutex::new(SessionManager::new(
+        apprules.clone(),
+        db_handle,
+        supabase_sync.clone(),
+        on_distraction,
+    )));
     let shutdown_flag_clone = shutdown_flag.clone();
 
     crate::graceful_shutdown::install(session_mgr.clone(), shutdown_flag.clone());
@@ -251,17 +294,24 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
         let shutdown_flag = shutdown_flag.clone();
         thread::spawn(move || {
             let (tx, rx) = channel();
-            let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
+            let path_str =
+                std::env::var("APPRULES_PATH").unwrap_or_else(|_| "../apprules.json".to_string());
             let path = Path::new(&path_str);
             println!("[Watcher] Starting file watcher for: {}", path.display());
-            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default()).expect("Failed to create watcher");
-            watcher.watch(path, RecursiveMode::NonRecursive).expect("Failed to watch apprules.json");
+            let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
+                .expect("Failed to create watcher");
+            watcher
+                .watch(path, RecursiveMode::NonRecursive)
+                .expect("Failed to watch apprules.json");
             println!("[Watcher] File watcher started successfully");
             while !shutdown_flag.load(Ordering::SeqCst) {
                 if let Ok(event) = rx.recv_timeout(Duration::from_secs(1)) {
                     println!("[Watcher] Received event: {:?}", event);
                     match event {
-                        Ok(Event { kind: EventKind::Modify(_), .. }) => {
+                        Ok(Event {
+                            kind: EventKind::Modify(_),
+                            ..
+                        }) => {
                             log::info!("[Watcher] Detected apprules.json change, reloading...");
                             match AppRules::new() {
                                 Ok(new_rules) => {
@@ -269,13 +319,13 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
                                     let mut mgr = session_mgr.lock().unwrap();
                                     mgr.set_apprules(new_rules);
                                     log::info!("[Watcher] AppRules reloaded successfully.");
-                                },
+                                }
                                 Err(e) => {
                                     log::error!("[Watcher] Failed to reload AppRules: {}", e);
                                     println!("[Watcher] Failed to reload AppRules: {}", e);
                                 }
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -310,15 +360,19 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
             // Await the async push
             // REMOVE: push_focus_session_with_status at session end
             // Only update app usage events here
-            // Push app usage events for this 
+            // Push app usage events for this
             let db_handle = mgr.db_handle();
             if let Some(sid) = mgr.session_id().map(|id| id.0) {
                 match db_handle.get_app_usage_events_for_session(sid) {
                     Ok(events) => {
                         if !events.is_empty() {
                             match sync.push_app_usage_events(&events).await {
-                                Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                Ok(_) => {
+                                    println!("[Supabase] App usage events pushed successfully!")
+                                }
+                                Err(e) => {
+                                    eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                }
                             }
                         }
                     }
@@ -354,8 +408,12 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
                         Ok(events) => {
                             if !events.is_empty() {
                                 match sync.push_app_usage_events(&events).await {
-                                    Ok(_) => println!("[Supabase] App usage events pushed successfully!"),
-                                    Err(e) => eprintln!("[Supabase] App usage events sync failed: {}", e),
+                                    Ok(_) => {
+                                        println!("[Supabase] App usage events pushed successfully!")
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[Supabase] App usage events sync failed: {}", e)
+                                    }
                                 }
                             }
                         }
@@ -364,7 +422,7 @@ pub async fn backend_main_loop_with_shutdown(shutdown_flag: Arc<AtomicBool>) {
                 }
             }
         }
-        Ok(None) => {},
+        Ok(None) => {}
         Err(e) => log_error_with_context("Ending active session", &e),
     }
-} 
+}

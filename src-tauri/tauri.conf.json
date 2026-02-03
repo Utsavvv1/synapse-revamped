@@ -1,7 +1,7 @@
 {
   "$schema": "../ui/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synapse",
-  "version": "0.1.0", 
+  "version": "0.1.0",
   "identifier": "com.tauri.synapse",
   "build": {
     "beforeDevCommand": "npm --prefix ui run dev",
@@ -30,10 +30,14 @@
         {
           "identifier": "window-controls",
           "description": "Capability for window control operations",
-          "windows": ["*"],
+          "windows": [
+            "*"
+          ],
           "permissions": [
             "core:event:allow-listen",
             "core:window:allow-close",
+            "core:window:allow-create",
+            "core:webview:allow-create-webview-window",
             "core:window:allow-hide",
             "core:window:allow-show",
             "core:window:allow-maximize",
@@ -41,7 +45,9 @@
             "core:window:allow-unmaximize",
             "core:window:allow-unminimize",
             "core:window:allow-start-dragging",
-            "core:window:allow-is-maximized"
+            "core:window:allow-is-maximized",
+            "core:window:allow-get-all-windows",
+            "core:window:allow-set-size"
           ]
         }
       ]
