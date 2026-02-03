@@ -1,6 +1,6 @@
 import React from "react"
-import { Zap } from 'lucide-react'
 import { WindowControls } from "../components/WindowControls"
+import { ThemeSwitcher } from "../components/ThemeSwitcher"
 
 export default function SynapseHeader({ currentTime }) {
   return (
@@ -13,9 +13,12 @@ export default function SynapseHeader({ currentTime }) {
         <div className="phone-connected rounded-full px-4 py-2 gap-2 flex items-center transform scale-90">
           <span className="text-gray-200 font-medium text-sm body-text mr-2">Phone Connected</span>
           <div className="relative flex items-center gap-2">
-            <div className="w-6 h-6 bg-synapse-dark-alt rounded-full flex items-center justify-center mr-1 ml-2">
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full absolute -left-2 pulse-dot" />
-            </div>
+            <ThemeSwitcher>
+              <div className="w-6 h-6 bg-synapse-dark-alt rounded-full flex items-center justify-center mr-1 ml-2 cursor-pointer">
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full absolute -left-2 pulse-dot" />
+                {/* Profile Placeholder Icon or Initials could go here if needed, keeping it empty as per existing code */}
+              </div>
+            </ThemeSwitcher>
           </div>
         </div>
         <WindowControls />
