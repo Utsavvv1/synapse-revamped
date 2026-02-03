@@ -64,6 +64,8 @@ impl FocusSession {
     }
 }
 
+use std::collections::HashMap;
+
 /// Manages the current focus session, tracks app usage, and interacts with the database.
 pub struct SessionManager {
     /// Application rules for whitelisting/blacklisting.
@@ -82,12 +84,14 @@ pub struct SessionManager {
     session_id: Option<SessionId>,
     /// The last app in focus.
     last_app: Option<String>,
-    /// The start time of the last app in focus.
+    /// The last app start time.
     last_app_start: Option<std::time::SystemTime>,
     /// The row ID of the last app usage event in the database.
     last_app_event_id: Option<Uuid>,
     supabase_sync: Option<SupabaseSync>,
     on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    /// Temporary allowances for blocked apps (App Name -> Allowed Until).
+    temporary_allowances: HashMap<String, SystemTime>,
 }
 
 impl SessionManager {
@@ -111,6 +115,7 @@ impl SessionManager {
             last_app_event_id: None,
             supabase_sync,
             on_distraction,
+            temporary_allowances: HashMap::new(),
         }
     }
 
@@ -245,14 +250,38 @@ impl SessionManager {
 
     // --- Private Helper Methods ---
 
+    /// Snoozes a blocked app for a specified duration.
+    pub fn snooze_app(&mut self, app_name: String, duration: std::time::Duration) {
+        let allowed_until = SystemTime::now() + duration;
+        println!(
+            "[SessionManager] Snoozing app '{}' until {:?}",
+            app_name, allowed_until
+        );
+        self.temporary_allowances
+            .insert(app_name.to_lowercase(), allowed_until);
+    }
+
     fn handle_foreground_process(
         &mut self,
         proc_name: String,
         running_processes: &[String],
         any_work_app_running: bool,
     ) -> Result<(), SynapseError> {
-        let is_blocked = self.apprules.is_blocked(&proc_name);
+        let mut is_blocked = self.apprules.is_blocked(&proc_name);
         let is_work_app = self.apprules.is_work_app(&proc_name);
+
+        // check temporary allowances
+        if is_blocked {
+            if let Some(allowed_until) = self.temporary_allowances.get(&proc_name.to_lowercase()) {
+                if SystemTime::now() < *allowed_until {
+                    println!("    App '{}' is temporarily allowed (snoozed)", proc_name);
+                    is_blocked = false;
+                } else {
+                    // Allowance expired
+                    self.temporary_allowances.remove(&proc_name.to_lowercase());
+                }
+            }
+        }
 
         self.update_app_focus_duration(&proc_name)?;
         self.log_app_event(&proc_name, is_blocked)?;
@@ -290,7 +319,25 @@ impl SessionManager {
                     let duration = end_time - start_time_secs;
                     // Only record if a focus session is active
                     if let Some(ref session) = self.current_session {
-                        let is_blocked = self.apprules.is_blocked(&last_app);
+                        let mut is_blocked = self.apprules.is_blocked(&last_app);
+                        // Check allowance for historical record too?
+                        // If it was allowed when it started, it should probably be recorded as allowed.
+                        // But strictly, we record status based on rules.
+                        // Ideally, we pass the status determined at detection time.
+                        // But `update_app_focus_duration` recalculates `is_blocked`.
+                        // Let's check allowance here too for consistency.
+                        if is_blocked {
+                            if let Some(allowed_until) =
+                                self.temporary_allowances.get(&last_app.to_lowercase())
+                            {
+                                // If allowed *now*, we count it as allowed. Ideally strictly checking ranges,
+                                // but this is good enough approximation.
+                                if SystemTime::now() < *allowed_until {
+                                    is_blocked = false;
+                                }
+                            }
+                        }
+
                         let status = if is_blocked { "blocked" } else { "allowed" };
                         let session_id = Some(session.id);
                         let event_id = self.db_handle.insert_app_usage_event(
@@ -356,22 +403,37 @@ impl SessionManager {
         is_blocked: bool,
     ) -> Result<(), SynapseError> {
         if is_blocked {
-            println!("    Blocked app in focus: {}", proc_name);
-            if let Some(session) = self.current_session.as_mut() {
-                session.distraction_attempts += 1;
-            }
-            if self.current_session.is_some()
-                && self.last_distraction_app.as_deref() != Some(proc_name)
-            {
-                if let Some(callback) = &self.on_distraction {
-                    callback(proc_name);
-                } else {
-                    // Fallback to native popup if no callback provided (optional, or just do nothing)
-                    show_distraction_popup(proc_name).map_err(|e| {
-                        SynapseError::Platform(format!("Failed to show distraction popup: {}", e))
-                    })?;
+            // Only count distraction and notify if it's a new distraction event
+            // (i.e., different app than last time, or re-opening the same app after switching away)
+            if self.last_distraction_app.as_deref() != Some(proc_name) {
+                println!("    Blocked app in focus: {}", proc_name);
+                if let Some(session) = self.current_session.as_mut() {
+                    session.distraction_attempts += 1;
+                    // Persist distraction count immediately
+                    if let Some(session_id) = self.session_id.clone() {
+                        if let Err(e) = self.db_handle.update_session_distractions(
+                            session_id.into(),
+                            session.distraction_attempts as i32,
+                        ) {
+                            eprintln!("Failed to update distraction count in DB: {}", e);
+                        }
+                    }
                 }
-                self.last_distraction_app = Some(proc_name.to_string());
+
+                if self.current_session.is_some() {
+                    if let Some(callback) = &self.on_distraction {
+                        callback(proc_name);
+                    } else {
+                        // Fallback to native popup if no callback provided
+                        show_distraction_popup(proc_name).map_err(|e| {
+                            SynapseError::Platform(format!(
+                                "Failed to show distraction popup: {}",
+                                e
+                            ))
+                        })?;
+                    }
+                    self.last_distraction_app = Some(proc_name.to_string());
+                }
             }
         } else {
             self.last_distraction_app = None;

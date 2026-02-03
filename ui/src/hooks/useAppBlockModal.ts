@@ -9,27 +9,37 @@ interface UseAppBlockModalReturn {
 }
 
 export function useAppBlockModal(): UseAppBlockModalReturn {
-  const showModal = useCallback(async () => {
+  const showModal = useCallback(async (appName?: string) => {
     // Check if window already exists
     const label = 'block-warning-modal'
     const existing = await WebviewWindow.getByLabel(label)
 
+    // Construct URL with app param if provided
+    const url = appName ? `/block-warning?app=${encodeURIComponent(appName)}` : '/block-warning';
+
     if (existing) {
+      if (appName) {
+        // If reusing window, update the URL/search params so the page knows which app
+        // But webview.window.location.href might not update if we don't navigate.
+        // We can use emit to send update to existing window, or simple re-navigate.
+        // Creating a second window with same label fails, so we must reuse.
+        // Evaluating JS might be easiest to update the state if we don't want full reload.
+        // BUT given simpler approach: just navigate.
+        // But navigate might flash.
+        // Alternative: emit event 'update-block-info' to the window.
+        await existing.emit('update-block-info', appName);
+      }
+
       // Ensure size is correct even if recycled
       await existing.hide() // Hide first to reset any state/flash
       await existing.setSize(new LogicalSize(360, 420))
-      // The page component will trigger show() when ready if we re-navigate or reload,
-      // but since we are just showing an existing window, we might need to rely on the event.
-      // Actually, if we just show it here, we risk the flash if it was previously closed/hidden but not destroyed.
-      // However, if the page is already mounted, the useEffect won't run again unless we reload.
-      // Let's just show it here for now, as the page should still be transparent.
       await existing.show()
       await existing.setFocus()
       return
     }
 
     const webview = new WebviewWindow(label, {
-      url: '/block-warning',
+      url: url,
       title: 'Action Blocked',
       alwaysOnTop: true,
       decorations: false,
@@ -64,7 +74,7 @@ export function useAppBlockModal(): UseAppBlockModalReturn {
   useEffect(() => {
     const unlistenPromise = listen('app-blocked', (event) => {
       console.log('Received app-blocked event:', event.payload);
-      showModal();
+      showModal(event.payload as string);
     });
 
     return () => {

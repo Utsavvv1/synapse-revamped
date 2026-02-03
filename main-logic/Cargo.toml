@@ -18,10 +18,11 @@ windows = { version = "0.52", features = [
     "Win32_System_ProcessStatus",
     "Win32_System_Threading",
     "Win32_Foundation",
-    "Win32_System_Diagnostics_ToolHelp"
+    "Win32_System_Diagnostics_ToolHelp",
 ] }
 serde_with = "3.7"
 uuid = { version = "1", features = ["v4", "serde"] }
 log = "0.4"
 env_logger = "0.10"
 notify = "6.1"
+chrono = { version = "0.4", features = ["serde"] }

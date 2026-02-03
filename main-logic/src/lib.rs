@@ -230,17 +230,28 @@ pub fn run_backend() {
 pub fn run_backend_with_shutdown(
     shutdown_flag: Arc<AtomicBool>,
     on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    command_rx: Receiver<BackendCommand>,
 ) {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
     rt.block_on(backend_main_loop_with_shutdown(
         shutdown_flag,
         on_distraction,
+        command_rx,
     ));
+}
+
+use std::sync::mpsc::{Receiver, Sender};
+
+#[derive(Debug)]
+pub enum BackendCommand {
+    Snooze(String, Duration),
+    Kill(String),
 }
 
 pub async fn backend_main_loop_with_shutdown(
     shutdown_flag: Arc<AtomicBool>,
     on_distraction: Option<Box<dyn Fn(&str) + Send + Sync>>,
+    command_rx: Receiver<BackendCommand>,
 ) {
     dotenvy::from_filename("../.env").ok();
     use crate::apprules::AppRules;
@@ -335,6 +346,32 @@ pub async fn backend_main_loop_with_shutdown(
     }
 
     while !shutdown_flag_clone.load(Ordering::SeqCst) {
+        // Handle commands
+        if let Ok(cmd) = command_rx.try_recv() {
+            println!("[Backend] Received command: {:?}", cmd);
+            match cmd {
+                BackendCommand::Snooze(app, dur) => {
+                    let mut mgr = session_mgr.lock().unwrap();
+                    mgr.snooze_app(app, dur);
+                }
+                BackendCommand::Kill(app) => {
+                    // Platform specific kill
+                    #[cfg(target_os = "windows")]
+                    {
+                        if let Err(e) = crate::platform::kill_process_by_name(&app) {
+                            eprintln!("[Backend] Failed to kill app '{}': {}", app, e);
+                        } else {
+                            println!("[Backend] Killed app '{}'", app);
+                        }
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        eprintln!("[Backend] Kill not implemented for this OS");
+                    }
+                }
+            }
+        }
+
         let mut mgr = session_mgr.lock().unwrap();
         let poll_result = match mgr.poll() {
             Ok(ended_session) => ended_session,
@@ -355,7 +392,6 @@ pub async fn backend_main_loop_with_shutdown(
                 Ok(json) => println!("[DEBUG] Pushing session to Supabase: {}", json),
                 Err(e) => eprintln!("[DEBUG] Failed to serialize session: {}", e),
             }
-            let status = sync_status.clone();
             let sync = sync.clone();
             // Await the async push
             // REMOVE: push_focus_session_with_status at session end
@@ -400,7 +436,6 @@ pub async fn backend_main_loop_with_shutdown(
             if let Some(sync) = &supabase_sync {
                 // REMOVE: push_focus_session_with_status at session end
                 // Only update app usage events here
-                let status = sync_status.clone();
                 // Push app usage events for this session
                 let db_handle = mgr.db_handle();
                 if let Some(sid) = mgr.session_id().map(|id| id.0) {

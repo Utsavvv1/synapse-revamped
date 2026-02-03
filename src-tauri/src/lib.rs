@@ -1,5 +1,6 @@
 use dotenvy;
-use main_logic::{api, apprules, DbHandle}; // Added apprules
+use main_logic::{api, apprules, BackendCommand, DbHandle}; // Added apprules and BackendCommand
+use std::sync::mpsc::{channel, Sender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -13,6 +14,7 @@ use tauri::State;
 struct BackendState {
     handle: Mutex<Option<JoinHandle<()>>>,
     shutdown_flag: Arc<AtomicBool>,
+    command_tx: Mutex<Option<Sender<BackendCommand>>>,
 }
 
 impl BackendState {
@@ -20,6 +22,7 @@ impl BackendState {
         Self {
             handle: Mutex::new(None),
             shutdown_flag: Arc::new(AtomicBool::new(false)),
+            command_tx: Mutex::new(None),
         }
     }
 }
@@ -36,6 +39,13 @@ fn start_monitoring_cmd(
     state.shutdown_flag.store(false, Ordering::SeqCst);
     let shutdown_flag = state.shutdown_flag.clone();
 
+    // Create channel for backend control
+    let (tx, rx) = channel();
+    {
+        let mut tx_guard = state.command_tx.lock().unwrap();
+        *tx_guard = Some(tx);
+    }
+
     // Create the callback that will be called when a distraction is detected
     let app_handle_clone = app_handle.clone();
     let on_distraction = Some(Box::new(move |app_name: &str| {
@@ -47,7 +57,7 @@ fn start_monitoring_cmd(
     }) as Box<dyn Fn(&str) + Send + Sync>);
 
     *handle_guard = Some(thread::spawn(move || {
-        main_logic::run_backend_with_shutdown(shutdown_flag, on_distraction);
+        main_logic::run_backend_with_shutdown(shutdown_flag, on_distraction, rx);
     }));
     println!("[Tauri] Backend monitoring started");
     Ok(())
@@ -60,8 +70,43 @@ fn stop_monitoring_cmd(state: State<BackendState>) -> Result<(), String> {
     if let Some(handle) = handle_guard.take() {
         let _ = handle.join();
     }
+    // Clear the command channel
+    let mut tx_guard = state.command_tx.lock().unwrap();
+    *tx_guard = None;
+
     println!("[Tauri] Backend monitoring stopped");
     Ok(())
+}
+
+#[tauri::command]
+fn kill_app_cmd(state: State<BackendState>, app_name: String) -> Result<(), String> {
+    let tx_guard = state.command_tx.lock().unwrap();
+    if let Some(tx) = &*tx_guard {
+        tx.send(BackendCommand::Kill(app_name))
+            .map_err(|e| format!("Failed to send kill command: {}", e))?;
+        Ok(())
+    } else {
+        Err("Backend not running".to_string())
+    }
+}
+
+#[tauri::command]
+fn snooze_app_cmd(
+    state: State<BackendState>,
+    app_name: String,
+    duration_secs: u64,
+) -> Result<(), String> {
+    let tx_guard = state.command_tx.lock().unwrap();
+    if let Some(tx) = &*tx_guard {
+        tx.send(BackendCommand::Snooze(
+            app_name,
+            std::time::Duration::from_secs(duration_secs),
+        ))
+        .map_err(|e| format!("Failed to send snooze command: {}", e))?;
+        Ok(())
+    } else {
+        Err("Backend not running".to_string())
+    }
 }
 
 #[tauri::command]
@@ -145,7 +190,9 @@ pub fn run() {
             update_app_rules_cmd,
             start_monitoring_cmd,
             stop_monitoring_cmd,
-            is_monitoring_cmd
+            is_monitoring_cmd,
+            kill_app_cmd,
+            snooze_app_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

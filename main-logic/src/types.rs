@@ -1,8 +1,9 @@
 //! Shared newtypes for strong typing across the codebase.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SessionId(pub Uuid);
 
 impl From<Uuid> for SessionId {
@@ -26,4 +27,4 @@ pub struct AppUsageEvent {
     pub start_time: i64,
     pub end_time: i64,
     pub duration_secs: i64,
-} 
+}

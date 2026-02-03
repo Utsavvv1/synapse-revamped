@@ -2,8 +2,9 @@
 
 use crate::db::DbHandle;
 use crate::error::SynapseError;
-use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(target_os = "windows")]
 use winreg::enums::*;
+#[cfg(target_os = "windows")]
 use winreg::RegKey;
 
 /// Returns the total focus time (in seconds) for today.
@@ -12,7 +13,9 @@ pub fn total_focus_time_today(db: &DbHandle) -> Result<i64, SynapseError> {
     let mut stmt = db.conn().prepare(
         "SELECT SUM(COALESCE(end_time, strftime('%s','now')) - start_time) FROM focus_sessions WHERE start_time >= ?1 AND start_time < ?2"
     )?;
-    let total: Option<i64> = stmt.query_row([start_of_day, end_of_day], |row| row.get(0)).ok();
+    let total: Option<i64> = stmt
+        .query_row([start_of_day, end_of_day], |row| row.get(0))
+        .ok();
     Ok(total.unwrap_or(0))
 }
 
@@ -22,7 +25,9 @@ pub fn total_distractions_today(db: &DbHandle) -> Result<i64, SynapseError> {
     let mut stmt = db.conn().prepare(
         "SELECT SUM(distraction_attempts) FROM focus_sessions WHERE start_time >= ?1 AND start_time < ?2"
     )?;
-    let total: Option<i64> = stmt.query_row([start_of_day, end_of_day], |row| row.get(0)).ok();
+    let total: Option<i64> = stmt
+        .query_row([start_of_day, end_of_day], |row| row.get(0))
+        .ok();
     Ok(total.unwrap_or(0))
 }
 
@@ -30,9 +35,11 @@ pub fn total_distractions_today(db: &DbHandle) -> Result<i64, SynapseError> {
 pub fn total_focus_sessions_today(db: &DbHandle) -> Result<i64, SynapseError> {
     let (start_of_day, end_of_day) = today_bounds();
     let mut stmt = db.conn().prepare(
-        "SELECT COUNT(*) FROM focus_sessions WHERE start_time >= ?1 AND start_time < ?2"
+        "SELECT COUNT(*) FROM focus_sessions WHERE start_time >= ?1 AND start_time < ?2",
     )?;
-    let count: Option<i64> = stmt.query_row([start_of_day, end_of_day], |row| row.get(0)).ok();
+    let count: Option<i64> = stmt
+        .query_row([start_of_day, end_of_day], |row| row.get(0))
+        .ok();
     Ok(count.unwrap_or(0))
 }
 
@@ -57,9 +64,18 @@ pub fn get_installed_apps_api() -> Vec<(String, String)> {
     let mut apps = Vec::new();
 
     let uninstall_paths = [
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_CURRENT_USER),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
     ];
 
     for (hive, path) in uninstall_paths.iter() {
@@ -67,9 +83,8 @@ pub fn get_installed_apps_api() -> Vec<(String, String)> {
             for item in uninstall.enum_keys().flatten() {
                 if let Ok(subkey) = uninstall.open_subkey(&item) {
                     let display_name: Result<String, _> = subkey.get_value("DisplayName");
-                    let is_system_component = subkey
-                        .get_value::<u32, _>("SystemComponent")
-                        .unwrap_or(0) == 1;
+                    let is_system_component =
+                        subkey.get_value::<u32, _>("SystemComponent").unwrap_or(0) == 1;
 
                     if let Ok(name) = display_name {
                         if is_system_component || name.trim().is_empty() {
@@ -77,7 +92,8 @@ pub fn get_installed_apps_api() -> Vec<(String, String)> {
                         }
 
                         // Try DisplayIcon first, fallback to UninstallString
-                        let exe_source = subkey.get_value::<String, _>("DisplayIcon")
+                        let exe_source = subkey
+                            .get_value::<String, _>("DisplayIcon")
                             .ok()
                             .or_else(|| subkey.get_value("UninstallString").ok());
 
@@ -98,15 +114,24 @@ pub fn get_installed_apps_api() -> Vec<(String, String)> {
     apps
 }
 
-/// Helper: Returns (start_of_day, end_of_day) as UNIX timestamps for today in UTC.
-/// NOTE: This uses UTC, not local time, to avoid external crates. If you need local time, use a crate or OS-specific API.
+use chrono::{Local, TimeZone};
+
+/// Helper: Returns (start_of_day, end_of_day) as UNIX timestamps for today in Local Time.
 fn today_bounds() -> (i64, i64) {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
-    // Calculate UTC midnight for today
-    let days_since_epoch = now / 86400;
-    let start = days_since_epoch * 86400;
-    let end = start + 86400;
-    (start, end)
+    let now = Local::now();
+    // Get start of today in local time
+    let start = now.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    // Convert to UTC timestamp for DB comparison
+    // We need to assume the DB stores UTC timestamps (SystemTime::now())
+    // but we want to filter for records that fall within "Today" in Local time.
+    // So distinct from UTC midnight.
+    // Example: If Local is IST (UTC+5:30), Today 00:00 is Yesterday 18:30 UTC.
+    // any timestamp >= Yesterday 18:30 UTC belongs to Today in IST.
+
+    // Convert naive datetime (local) back to timestamp using the offset
+    let start_timestamp = Local.from_local_datetime(&start).unwrap().timestamp();
+    let end_timestamp = start_timestamp + 86400;
+    (start_timestamp, end_timestamp)
 }
 
 // Extension trait to access the private conn field safely
@@ -119,4 +144,4 @@ impl DbConn for DbHandle {
         // SAFETY: We are only exposing for read-only queries
         &self.conn
     }
-} 
+}

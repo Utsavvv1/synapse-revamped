@@ -2,12 +2,14 @@
 
 use windows::{
     core::PCSTR,
+    Win32::Foundation::CloseHandle,
     Win32::System::Diagnostics::ToolHelp::*,
+    Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use std::ffi::{CStr, CString};
 use crate::error::SynapseError;
+use std::ffi::{CStr, CString};
 
 /// Gets the name of the foreground process on Windows.
 ///
@@ -100,6 +102,60 @@ pub fn show_distraction_popup(app_name: &str) -> Result<(), SynapseError> {
         );
     }
     Ok(())
+}
+
+/// Kills a process by name.
+///
+/// # Arguments
+/// * `process_name` - Name of the process to kill (e.g., "notepad.exe")
+///
+/// # Errors
+/// Returns `SynapseError` if the process cannot be found or killed.
+pub fn kill_process_by_name(process_name: &str) -> Result<(), SynapseError> {
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            .map_err(|e| SynapseError::Platform(format!("Snapshot failed: {:?}", e)))?;
+        let mut entry = PROCESSENTRY32 {
+            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
+            ..Default::default()
+        };
+
+        let target_name = process_name.to_lowercase();
+        let mut killed = false;
+
+        if Process32First(snapshot, &mut entry).is_ok() {
+            loop {
+                let raw_name = entry.szExeFile.as_ptr();
+                let name = CStr::from_ptr(raw_name as *const i8)
+                    .to_string_lossy()
+                    .into_owned()
+                    .to_lowercase();
+
+                if name == target_name {
+                    let pid = entry.th32ProcessID;
+                    if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                        if TerminateProcess(handle, 1).is_ok() {
+                            killed = true;
+                        }
+                        let _ = CloseHandle(handle);
+                    }
+                }
+
+                if Process32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+
+        if killed {
+            Ok(())
+        } else {
+            Err(SynapseError::Platform(format!(
+                "Process '{}' not found or could not be killed",
+                process_name
+            )))
+        }
+    }
 }
 
 #[cfg(test)]
