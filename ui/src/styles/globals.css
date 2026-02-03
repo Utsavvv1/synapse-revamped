@@ -92,8 +92,9 @@
   }
   .glass-card-dark:hover {
     background: rgba(0, 0, 0, 0.55); /* Slightly darker on hover */
-    transform: translateY(-2px); /* Lift effect on hover */
+    
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15); /* Stronger shadow on hover */
+
   }
   .hero-text {
     letter-spacing: -0.07em; /* Tight letter spacing for hero headings */
@@ -165,4 +166,121 @@
     background-size: 200% 100%; /* Shimmer background size */
     animation: shimmer 3s ease-in-out infinite; /* Shimmer animation */
   }
-} 
+
+  /* Custom scrollbar styles for dropdown */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px; /* Thin scrollbar width */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1); /* Track background */
+    border-radius: 2px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3); /* Default thumb color */
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.5); /* Hover thumb color */
+  }
+
+  /* Theme-specific scrollbar colors */
+  .bg-synapse-accent .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--synapse-dark) / 0.4); /* Dark thumb for accent bg */
+  }
+
+  .bg-synapse-accent .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--synapse-dark) / 0.6); /* Darker on hover */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--synapse-accent) / 0.4); /* Accent thumb for dark bg */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--synapse-accent) / 0.6); /* Brighter on hover */
+  }
+
+  .bg-synapse-dark-alt .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--synapse-accent) / 0.1); /* Accent track for dark bg */
+  }
+
+  /* Enhanced dropdown styling for professional look */
+  .dropdown-item-hover {
+    @apply hover:bg-accent hover:text-accent-foreground;
+  }
+
+  /* Focus ring styles similar to shadcn */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  /* Professional search input styling */
+  .search-input {
+    @apply border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* Professional dropdown animations */
+  .dropdown-enter {
+    animation: dropdown-in 200ms ease-out forwards;
+  }
+
+  .dropdown-exit {
+    animation: dropdown-out 150ms ease-in forwards;
+  }
+
+  .dropdown-content-enter {
+    animation: dropdown-content-in 250ms ease-out 50ms both;
+  }
+
+  .dropdown-item-enter {
+    animation: dropdown-item-in 200ms ease-out both;
+  }
+
+  @keyframes dropdown-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes dropdown-out {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+  }
+
+  @keyframes dropdown-content-in {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes dropdown-item-in {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}

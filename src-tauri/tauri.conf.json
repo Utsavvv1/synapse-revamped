@@ -15,11 +15,43 @@
         "title": "Synapse",
         "width": 800,
         "height": 600,
+        "decorations": false,
+        "transparent": false,
+        "maximizable": true,
+        "minimizable": true,
+        "closable": true,
         "resizable": true,
         "fullscreen": false
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "window-controls",
+          "description": "Capability for window control operations",
+          "windows": [
+            "*"
+          ],
+          "permissions": [
+            "core:event:allow-listen",
+            "core:window:allow-close",
+            "core:window:allow-create",
+            "core:webview:allow-create-webview-window",
+            "core:window:allow-hide",
+            "core:window:allow-show",
+            "core:window:allow-maximize",
+            "core:window:allow-minimize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-unminimize",
+            "core:window:allow-start-dragging",
+            "core:window:allow-is-maximized",
+            "core:window:allow-get-all-windows",
+            "core:window:allow-set-size"
+          ]
+        }
+      ]
+    }
   },
   "bundle": {
     "active": true,

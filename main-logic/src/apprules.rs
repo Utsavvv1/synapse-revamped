@@ -2,12 +2,12 @@
 
 use std::fs;
 use std::path::Path;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use crate::error::SynapseError;
 
 /// Structure for deserializing the application rules JSON file.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AppRulesFile {
     whitelist: Vec<String>,
     blacklist: Vec<String>,
@@ -26,7 +26,8 @@ impl AppRules {
     /// # Errors
     /// Returns `SynapseError` if the file cannot be read or parsed.
     pub fn new() -> Result<Self, SynapseError> {
-        let path = Path::new("apprules.json");
+        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+        let path = Path::new(&path_str);
         if path.exists() {
             let contents = fs::read_to_string(path)
                 .map_err(|e| SynapseError::Config(format!("Failed to read apprules.json: {}", e)))?;
@@ -63,12 +64,56 @@ impl AppRules {
             expanded.push(name_lc.clone());
             #[cfg(target_os = "windows")]
             {
-                if !name_lc.ends_with(".exe") {
+                if !name_lc.ends_with(".exe") && !name_lc.contains(".exe") {
                     expanded.push(format!("{}.exe", name_lc));
                 }
             }
         }
         expanded
+    }
+
+    /// Updates the whitelist and blacklist, then saves to `apprules.json`.
+    ///
+    /// # Arguments
+    /// * `whitelist` - New whitelist apps (expected as .exe names from frontend).
+    /// * `blacklist` - New blacklist apps (expected as .exe names from frontend).
+    ///
+    /// # Errors
+    /// Returns `SynapseError` if the file cannot be written or serialized.
+    pub fn update_rules(&mut self, whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), SynapseError> {
+        log::info!("[DEBUG] update_rules called");
+        log::info!("[DEBUG] Incoming whitelist: {:?}", whitelist);
+        log::info!("[DEBUG] Incoming blacklist: {:?}", blacklist);
+
+        self.whitelist = Self::expand_names(whitelist); // Expand .exe names if needed
+        self.blacklist = Self::expand_names(blacklist); // Expand .exe names if needed
+
+        log::info!("[DEBUG] Expanded whitelist: {:?}", self.whitelist);
+        log::info!("[DEBUG] Expanded blacklist: {:?}", self.blacklist);
+
+        let rules = AppRulesFile {
+            whitelist: self.whitelist.iter().map(|s| s.to_string()).collect(),
+            blacklist: self.blacklist.iter().map(|s| s.to_string()).collect(),
+        };
+
+        let json = serde_json::to_string_pretty(&rules)
+            .map_err(|e| {
+                log::error!("[DEBUG] Failed to serialize app rules: {}", e);
+                SynapseError::Config(format!("Failed to serialize app rules: {}", e))
+            })?;
+        let path_str = std::env::var("APPRULES_PATH").unwrap_or_else(|_| "apprules.json".to_string());
+        let path = Path::new(&path_str);
+
+        log::info!("[DEBUG] Writing rules to: {}", path.display());
+        fs::write(path, json)
+            .map_err(|e| {
+                log::error!("[DEBUG] Failed to write apprules.json: {}", e);
+                SynapseError::Config(format!("Failed to write apprules.json: {}", e))
+            })?;
+
+        log::info!("[DEBUG] App rules successfully updated and written to disk.");
+
+        Ok(())
     }
 
     /// Checks if a process name is in the whitelist.
@@ -85,10 +130,29 @@ impl AppRules {
     pub fn whitelist(&self) -> &Vec<String> {
         &self.whitelist
     }
+
     /// Returns a reference to the blacklist.
     pub fn blacklist(&self) -> &Vec<String> {
         &self.blacklist
     }
+}
+
+/// Public function to update apprules.json without managing state in src-tauri.
+pub fn update_app_rules(whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), SynapseError> {
+    log::info!("Updating app rules:");
+    log::info!("  New whitelist: {:?}", whitelist);
+    log::info!("  New blacklist: {:?}", blacklist);
+
+    // Load existing rules, update them, and save
+    let mut rules = AppRules::new()?;
+    rules.update_rules(whitelist, blacklist)?;
+    log::info!("App rules updated and saved to apprules.json.");
+
+    // Print the updated rules for debug
+    log::info!("  Updated whitelist: {:?}", rules.whitelist());
+    log::info!("  Updated blacklist: {:?}", rules.blacklist());
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -129,7 +193,6 @@ mod tests {
     fn missing_file_leaves_whitelist_and_blacklist_empty() {
         let path = Path::new("apprules.json");
         let backup = Path::new("apprules.json.bak_test");
-        // If apprules.json exists, rename it
         let had_file = if path.exists() {
             fs::rename(path, backup).is_ok()
         } else {
@@ -138,7 +201,6 @@ mod tests {
         let rules = AppRules::new().unwrap();
         assert!(rules.whitelist().is_empty());
         assert!(rules.blacklist().is_empty());
-        // Restore apprules.json if it was present
         if had_file {
             let _ = fs::rename(backup, path);
         }
@@ -168,6 +230,21 @@ mod tests {
         fs::write(path, "not a json").unwrap();
         let result = fs::read_to_string(path).and_then(|contents| serde_json::from_str::<AppRulesFile>(&contents).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
         assert!(result.is_err());
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn updates_and_saves_rules_with_exe() {
+        let mut rules = AppRules::test_with_rules(vec!["notepad".to_string()], vec!["chrome".to_string()]);
+        let new_whitelist = vec!["emacs.exe".to_string()];
+        let new_blacklist = vec!["discord.exe".to_string()];
+        rules.update_rules(new_whitelist, new_blacklist).unwrap();
+
+        let path = Path::new("test_apprules.json");
+        let contents = fs::read_to_string(path).unwrap();
+        let parsed: AppRulesFile = serde_json::from_str(&contents).unwrap();
+        assert_eq!(parsed.whitelist, vec!["emacs.exe"]);
+        assert_eq!(parsed.blacklist, vec!["discord.exe"]);
         fs::remove_file(path).unwrap();
     }
 }

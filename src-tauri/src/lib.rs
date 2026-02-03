@@ -1,20 +1,199 @@
-use main_logic; // Import the main-logic crate
+use dotenvy;
+use main_logic::{api, apprules, BackendCommand, DbHandle}; // Added apprules and BackendCommand
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+use std::thread;
+use std::thread::JoinHandle;
+use tauri::Emitter;
+use tauri::State;
+
+// Global state for backend control
+struct BackendState {
+    handle: Mutex<Option<JoinHandle<()>>>,
+    shutdown_flag: Arc<AtomicBool>,
+    command_tx: Mutex<Option<Sender<BackendCommand>>>,
+}
+
+impl BackendState {
+    fn new() -> Self {
+        Self {
+            handle: Mutex::new(None),
+            shutdown_flag: Arc::new(AtomicBool::new(false)),
+            command_tx: Mutex::new(None),
+        }
+    }
+}
+
+#[tauri::command]
+fn start_monitoring_cmd(
+    app_handle: tauri::AppHandle,
+    state: State<BackendState>,
+) -> Result<(), String> {
+    let mut handle_guard = state.handle.lock().unwrap();
+    if handle_guard.is_some() {
+        return Ok(()); // Already running
+    }
+    state.shutdown_flag.store(false, Ordering::SeqCst);
+    let shutdown_flag = state.shutdown_flag.clone();
+
+    // Create channel for backend control
+    let (tx, rx) = channel();
+    {
+        let mut tx_guard = state.command_tx.lock().unwrap();
+        *tx_guard = Some(tx);
+    }
+
+    // Create the callback that will be called when a distraction is detected
+    let app_handle_clone = app_handle.clone();
+    let on_distraction = Some(Box::new(move |app_name: &str| {
+        println!("[Tauri] Distraction detected: {}", app_name);
+        // Emit event to frontend
+        if let Err(e) = app_handle_clone.emit("app-blocked", app_name) {
+            eprintln!("[Tauri] Failed to emit app-blocked event: {}", e);
+        }
+    }) as Box<dyn Fn(&str) + Send + Sync>);
+
+    *handle_guard = Some(thread::spawn(move || {
+        main_logic::run_backend_with_shutdown(shutdown_flag, on_distraction, rx);
+    }));
+    println!("[Tauri] Backend monitoring started");
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_monitoring_cmd(state: State<BackendState>) -> Result<(), String> {
+    let mut handle_guard = state.handle.lock().unwrap();
+    state.shutdown_flag.store(true, Ordering::SeqCst);
+    if let Some(handle) = handle_guard.take() {
+        let _ = handle.join();
+    }
+    // Clear the command channel
+    let mut tx_guard = state.command_tx.lock().unwrap();
+    *tx_guard = None;
+
+    println!("[Tauri] Backend monitoring stopped");
+    Ok(())
+}
+
+#[tauri::command]
+fn kill_app_cmd(state: State<BackendState>, app_name: String) -> Result<(), String> {
+    let tx_guard = state.command_tx.lock().unwrap();
+    if let Some(tx) = &*tx_guard {
+        tx.send(BackendCommand::Kill(app_name))
+            .map_err(|e| format!("Failed to send kill command: {}", e))?;
+        Ok(())
+    } else {
+        Err("Backend not running".to_string())
+    }
+}
+
+#[tauri::command]
+fn snooze_app_cmd(
+    state: State<BackendState>,
+    app_name: String,
+    duration_secs: u64,
+) -> Result<(), String> {
+    let tx_guard = state.command_tx.lock().unwrap();
+    if let Some(tx) = &*tx_guard {
+        tx.send(BackendCommand::Snooze(
+            app_name,
+            std::time::Duration::from_secs(duration_secs),
+        ))
+        .map_err(|e| format!("Failed to send snooze command: {}", e))?;
+        Ok(())
+    } else {
+        Err("Backend not running".to_string())
+    }
+}
+
+#[tauri::command]
+fn is_monitoring_cmd(state: State<BackendState>) -> Result<bool, String> {
+    let handle_guard = state.handle.lock().unwrap();
+    Ok(handle_guard.is_some())
+}
+
+#[tauri::command]
+fn total_focus_time_today_cmd() -> Result<i64, String> {
+    let db = DbHandle::new().map_err(|e| format!("{:?}", e))?;
+    let result = api::total_focus_time_today(&db);
+    // println!("total_focus_time_today_cmd result: {:?}", result);
+    result.map_err(|e| format!("{:?}", e))
+}
+
+#[tauri::command]
+fn total_distractions_today_cmd() -> Result<i64, String> {
+    let db = DbHandle::new().map_err(|e| format!("{:?}", e))?;
+    api::total_distractions_today(&db).map_err(|e| format!("{:?}", e))
+}
+
+#[tauri::command]
+fn total_focus_sessions_today_cmd() -> Result<i64, String> {
+    let db = DbHandle::new().map_err(|e| format!("{:?}", e))?;
+    api::total_focus_sessions_today(&db).map_err(|e| format!("{:?}", e))
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn get_installed_apps_cmd() -> Vec<(String, String)> {
+    main_logic::api::get_installed_apps_api()
+}
+
+#[tauri::command]
+fn update_app_rules_cmd(whitelist: Vec<String>, blacklist: Vec<String>) -> Result<(), String> {
+    println!(
+        "update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}",
+        whitelist, blacklist
+    );
+    let whitelist_clone = whitelist.clone();
+    let blacklist_clone = blacklist.clone();
+    let result = apprules::update_app_rules(whitelist, blacklist);
+    println!(
+        "update_app_rules_cmd called with whitelist: {:?}, blacklist: {:?}",
+        whitelist_clone, blacklist_clone
+    );
+    println!("update_app_rules_cmd result: {:?}", result);
+    result.map_err(|e| format!("{:?}", e))
+}
+
+#[tauri::command]
+fn start_focus_mode_cmd() -> Result<String, String> {
+    // For now, just return success - in a real implementation this would trigger the session manager
+    // to start a focus session immediately
+    Ok("Focus mode started".to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      // Example usage of main-logic crate
-      // main_logic::some_function();
-      Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    dotenvy::from_filename(".env").ok();
+    tauri::Builder::default()
+        .manage(BackendState::new())
+        .setup(|_app| {
+            if cfg!(debug_assertions) {
+                _app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            total_focus_time_today_cmd,
+            total_distractions_today_cmd,
+            total_focus_sessions_today_cmd,
+            start_focus_mode_cmd,
+            #[cfg(target_os = "windows")]
+            get_installed_apps_cmd,
+            update_app_rules_cmd,
+            start_monitoring_cmd,
+            stop_monitoring_cmd,
+            is_monitoring_cmd,
+            kill_app_cmd,
+            snooze_app_cmd
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
