@@ -134,7 +134,7 @@ export default function StatisticsPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+                        <div className="grid grid-cols-2 gap-1 sm:gap-1.5 md:gap-2 flex-1">
                             <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-2.5 relative overflow-hidden min-h-[50px] sm:min-h-[60px] md:min-h-[70px]">
                                 <h2 className="text-[10px] sm:text-xs md:text-sm font-semibold text-lime leading-tight">Distractions</h2>
                                 <p className="text-[9px] sm:text-[10px] font-semibold text-white/60">Blocked</p>
@@ -148,9 +148,9 @@ export default function StatisticsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3 flex-1 min-h-[120px] overflow-hidden flex flex-col">
+                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3 flex-shrink-0 min-h-[120px] overflow-hidden flex flex-col">
                             <h2 className="text-sm sm:text-base md:text-lg font-semibold text-lime tracking-tight leading-tight mb-1.5 sm:mb-2 flex-shrink-0">Task List</h2>
-                            <div className="space-y-1 sm:space-y-1.5 overflow-y-auto pr-1 sm:pr-1.5 custom-scrollbar flex-1">
+                            <div className="space-y-1 sm:space-y-1.5 overflow-y-auto pr-1 sm:pr-1.5 custom-scrollbar flex-1 max-h-[100px] lg:max-h-none">
                                 {[1, 2, 3, 4].map((_, i) => (
                                     <div key={i} className="flex items-center gap-2 sm:gap-2.5 md:gap-3 bg-dark-green rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3">
                                         <div className="w-[16px] h-[16px] sm:w-[20px] sm:h-[20px] md:w-[24px] md:h-[24px] rounded-md bg-dark-bg flex-shrink-0"></div>
@@ -161,100 +161,58 @@ export default function StatisticsPage() {
                         </div>
 
                         {/* Spotify player - shown only on small screens below Task List */}
-                        <div className="block lg:hidden bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col gap-1.5 sm:gap-2 md:gap-3 border border-white/5 flex-shrink-0">
+                        <div className="block lg:hidden bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col gap-1.5 sm:gap-2 md:gap-3 border border-white/5 flex-1 lg:flex-shrink-0">
                             {isAuthenticated && track ? (
-                                <>
-                                    <div className="w-full rounded-md sm:rounded-lg md:rounded-xl overflow-hidden aspect-square max-h-[120px] sm:max-h-[150px] md:max-h-[180px] lg:max-h-[200px] mx-auto relative group border-2 border-white/20">
-                                        <img
-                                            src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
-                                            className="w-full h-full object-cover opacity-90"
-                                            alt="Song Art"
-                                        />
+                                <div className="flex flex-col gap-2">
+                                    <div className="text-center">
+                                        <p className="text-white font-bold text-xs sm:text-sm truncate">{track.name}</p>
+                                        <p className="text-white/60 text-[10px] sm:text-xs truncate">{track.artist}</p>
+                                    </div>
+
+                                    <div className="flex justify-center items-center gap-3 sm:gap-4">
                                         <button
-                                            onClick={logout}
-                                            className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/50 hover:bg-black/80 text-white/70 hover:text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[9px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={skipPrevious}
+                                            className="p-1 sm:p-1.5 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 text-white"
+                                            title="Previous"
                                         >
-                                            Disconnect
+                                            <SkipBack className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="currentColor" />
+                                        </button>
+
+                                        <button
+                                            onClick={togglePlayback}
+                                            className="w-8 h-8 sm:w-9 sm:h-9 bg-lime active:scale-90 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shrink-0"
+                                            title={track.is_playing ? 'Pause' : 'Play'}
+                                        >
+                                            {track.is_playing ? (
+                                                <Pause className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-synapse-dark stroke-synapse-dark" />
+                                            ) : (
+                                                <Play className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-synapse-dark stroke-synapse-dark ml-0.5" />
+                                            )}
+                                        </button>
+
+                                        <button
+                                            onClick={skipNext}
+                                            className="p-1 sm:p-1.5 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 text-white"
+                                            title="Next"
+                                        >
+                                            <SkipForward className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="currentColor" />
                                         </button>
                                     </div>
-                                    <div className="text-center mt-auto flex flex-col gap-1 sm:gap-1.5 md:gap-2">
-                                        <div className="mb-0.5 sm:mb-1">
-                                            <p className="text-white font-bold text-xs sm:text-sm md:text-base truncate">{track.name}</p>
-                                            <p className="text-white/60 text-[10px] sm:text-xs truncate">{track.artist}</p>
-                                        </div>
-
-                                        <div className="w-full group">
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max={track.duration_ms}
-                                                value={isDragging ? dragValue : progress}
-                                                onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                                                    setIsDragging(true);
-                                                    setDragValue(parseInt(e.currentTarget.value));
-                                                }}
-                                                onChange={(e) => {
-                                                    const val = parseInt(e.target.value);
-                                                    seek(val);
-                                                    setIsDragging(false);
-                                                }}
-                                                className="w-full h-0.5 sm:h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white hover:accent-lime transition-all"
-                                            />
-                                            <div className="flex justify-between mt-0.5 sm:mt-1 px-0.5">
-                                                <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
-                                                    {formatTime(isDragging ? dragValue : progress)}
-                                                </span>
-                                                <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
-                                                    {formatTime(track.duration_ms)}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-center items-center gap-3 sm:gap-4 md:gap-6 min-h-[32px] sm:min-h-[40px]">
-                                            <button
-                                                onClick={skipPrevious}
-                                                className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
-                                                title="Previous"
-                                            >
-                                                <SkipBack className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
-                                            </button>
-
-                                            <button
-                                                onClick={togglePlayback}
-                                                className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 bg-lime active:scale-90 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shrink-0"
-                                                title={track.is_playing ? 'Pause' : 'Play'}
-                                            >
-                                                {track.is_playing ? (
-                                                    <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark" />
-                                                ) : (
-                                                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark ml-0.5" />
-                                                )}
-                                            </button>
-
-                                            <button
-                                                onClick={skipNext}
-                                                className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
-                                                title="Next"
-                                            >
-                                                <SkipForward className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </>
+                                </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 sm:gap-3">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-lime/20 rounded-full flex items-center justify-center">
-                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                                <div className="flex flex-col items-center justify-center text-center gap-2">
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-lime/20 rounded-full flex items-center justify-center">
+                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-lime" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.485 17.302c-.215.354-.675.466-1.03.25-2.857-1.745-6.453-2.14-10.687-1.173-.406.093-.815-.16-.908-.567-.093-.406.16-.815.567-.908 4.636-1.06 8.594-.61 11.808 1.353.354.215.466.675.25 1.03zm1.464-3.26c-.27.44-.847.58-1.287.31-3.27-2.01-8.254-2.59-12.12-1.415-.494.15-1.025-.13-1.175-.624-.15-.494.13-1.025.624-1.175 4.414-1.34 9.907-.695 13.65 1.616.44.27.58.847.31 1.287zm.126-3.41c-3.922-2.33-10.385-2.545-14.136-1.406-.6.182-1.24-.16-1.423-.762-.182-.6.16-1.24.762-1.423 4.314-1.31 11.448-1.055 15.952 1.62.54.32.716 1.025.397 1.566-.32.54-1.025.716-1.566.397z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-bold text-xs sm:text-sm md:text-base">Spotify</h3>
+                                        <h3 className="text-white font-bold text-xs sm:text-sm">Spotify</h3>
                                         <p className="text-white/60 text-[10px] sm:text-xs">Connect to see what's playing</p>
                                     </div>
                                     <button
                                         onClick={login}
-                                        className="bg-lime text-synapse-dark px-3 py-1 sm:px-4 sm:py-1.5 md:px-6 md:py-2 rounded-full font-bold text-[10px] sm:text-xs md:text-sm hover:bg-lime/90 transition-colors"
+                                        className="bg-lime text-synapse-dark px-3 py-1 sm:px-4 sm:py-1.5 rounded-full font-bold text-[10px] sm:text-xs hover:bg-lime/90 transition-colors"
                                     >
                                         Connect
                                     </button>
