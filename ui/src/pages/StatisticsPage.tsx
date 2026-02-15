@@ -26,13 +26,32 @@ const formatTime = (ms: number) => {
 
 export default function StatisticsPage() {
     const navigate = useNavigate();
-    const { track, progress, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
+    const { track, user, progress, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString("en-US", {
         hour12: false,
         hour: "2-digit",
         minute: "2-digit",
     }));
+
+    // IDLE STATE LOGIC
+    const [isIdle, setIsIdle] = useState(false);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+
+        if (isAuthenticated && (!track || !track.is_playing)) {
+            // If authenticated but not playing (or no track), start idle timer
+            timer = setTimeout(() => {
+                setIsIdle(true);
+            }, 10000); // 10 seconds
+        } else {
+            // Playing -> Reset idle
+            setIsIdle(false);
+        }
+
+        return () => clearTimeout(timer);
+    }, [isAuthenticated, track?.is_playing]);
 
     // Local state to handle slider dragging smoothly
     const [isDragging, setIsDragging] = useState(false);
@@ -288,86 +307,136 @@ export default function StatisticsPage() {
 
                         {/* Spotify player - shown only on large screens below Calendar */}
                         <div className="hidden lg:grid grid-rows-[1fr_auto] bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-3 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 border border-white/5 flex-1 min-h-0 overflow-hidden">
-                            {isAuthenticated && track ? (
-                                <>
-                                    <div className="min-h-0 relative w-full h-full overflow-hidden flex items-center justify-center p-2">
-                                        <img
-                                            src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
-                                            className="h-full w-auto aspect-square object-cover rounded-md sm:rounded-lg md:rounded-xl border-2 border-white/20 shadow-lg"
-                                            alt="Song Art"
-                                        />
+                            {isAuthenticated ? (
+                                isIdle && user ? (
+                                    // IDLE PROFILE VIEW
+                                    <div className="flex flex-col items-center justify-center p-4 text-center h-full relative z-20 animate-in fade-in duration-500">
+                                        <div className="relative mb-3 sm:mb-4 group">
+                                            <img
+                                                src={user.images?.[0]?.url || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
+                                                alt={user.display_name}
+                                                className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full object-cover border-2 border-white/10 shadow-lg grayscale hover:grayscale-0 transition-all duration-500"
+                                            />
+                                        </div>
+
+                                        <h3 className="text-white font-bold text-lg sm:text-xl md:text-2xl mb-1 tracking-tight">{user.display_name}</h3>
+
+                                        <div className="flex items-center gap-1.5 mb-4 sm:mb-6 opacity-60">
+                                            <p className="text-white text-[10px] sm:text-xs font-medium uppercase tracking-wider">{user.followers?.total || 0} FOLLOWERS</p>
+                                        </div>
+
                                         <button
-                                            onClick={logout}
-                                            className="absolute top-3 right-3 bg-black/50 hover:bg-black/80 text-white/70 hover:text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[9px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                            onClick={togglePlayback}
+                                            className="text-white/80 hover:text-white border border-white/20 hover:border-white/40 hover:bg-white/5 px-6 py-1.5 sm:px-8 sm:py-2 rounded-full font-medium text-xs sm:text-sm active:scale-95 transition-all flex items-center gap-2"
                                         >
-                                            Disconnect
+                                            <Play className="w-3.5 h-3.5 fill-current" />
+                                            Resume
                                         </button>
                                     </div>
-                                    <div className="text-center flex flex-col gap-1 sm:gap-1.5 md:gap-2 relative z-20">
-                                        <div className="mb-0.5 sm:mb-1">
-                                            <p className="text-white font-bold text-xs sm:text-sm md:text-base truncate">{track.name}</p>
-                                            <p className="text-white/60 text-[10px] sm:text-xs truncate">{track.artist}</p>
-                                        </div>
-
-                                        <div className="w-full group">
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max={track.duration_ms}
-                                                value={isDragging ? dragValue : progress}
-                                                onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                                                    setIsDragging(true);
-                                                    setDragValue(parseInt(e.currentTarget.value));
-                                                }}
-                                                onChange={(e) => {
-                                                    const val = parseInt(e.target.value);
-                                                    seek(val);
-                                                    setIsDragging(false);
-                                                }}
-                                                className="w-full h-0.5 sm:h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white hover:accent-lime transition-all"
+                                ) : track ? (
+                                    // ACTIVE PLAYER VIEW
+                                    <>
+                                        <div className="min-h-0 relative w-full h-full overflow-hidden flex items-center justify-center p-2">
+                                            <img
+                                                src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
+                                                className="h-full w-auto aspect-square object-cover rounded-md sm:rounded-lg md:rounded-xl border-2 border-white/20 shadow-lg"
+                                                alt="Song Art"
                                             />
-                                            <div className="flex justify-between mt-0.5 sm:mt-1 px-0.5">
-                                                <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
-                                                    {formatTime(isDragging ? dragValue : progress)}
-                                                </span>
-                                                <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
-                                                    {formatTime(track.duration_ms)}
-                                                </span>
+                                            <button
+                                                onClick={logout}
+                                                className="absolute top-3 right-3 bg-black/50 hover:bg-black/80 text-white/70 hover:text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[9px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                title="Disconnect"
+                                            >
+                                                Disconnect
+                                            </button>
+                                        </div>
+                                        <div className="text-center flex flex-col gap-1 sm:gap-1.5 md:gap-2 relative z-20">
+                                            <div className="mb-0.5 sm:mb-1">
+                                                <p className="text-white font-bold text-xs sm:text-sm md:text-base truncate">{track.name}</p>
+                                                <p className="text-white/60 text-[10px] sm:text-xs truncate">{track.artist}</p>
+                                            </div>
+
+                                            {/* Progress Bar */}
+                                            <div className="w-full group">
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max={track.duration_ms}
+                                                    value={isDragging ? dragValue : progress}
+                                                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                                        setIsDragging(true);
+                                                        setDragValue(parseInt(e.currentTarget.value));
+                                                    }}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value);
+                                                        seek(val);
+                                                        setIsDragging(false);
+                                                    }}
+                                                    className="w-full h-0.5 sm:h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white hover:accent-lime transition-all"
+                                                />
+                                                <div className="flex justify-between mt-0.5 sm:mt-1 px-0.5">
+                                                    <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
+                                                        {formatTime(isDragging ? dragValue : progress)}
+                                                    </span>
+                                                    <span className="text-white/40 text-[8px] sm:text-[9px] md:text-[10px] font-medium tabular-nums">
+                                                        {formatTime(track.duration_ms)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-center items-center gap-3 sm:gap-4 md:gap-6 min-h-[32px] sm:min-h-[40px]">
+                                                <button
+                                                    onClick={skipPrevious}
+                                                    className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
+                                                    title="Previous"
+                                                >
+                                                    <SkipBack className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
+                                                </button>
+
+                                                <button
+                                                    onClick={togglePlayback}
+                                                    className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 bg-lime active:scale-90 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shrink-0"
+                                                    title={track.is_playing ? 'Pause' : 'Play'}
+                                                >
+                                                    {track.is_playing ? (
+                                                        <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark" />
+                                                    ) : (
+                                                        <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark ml-0.5" />
+                                                    )}
+                                                </button>
+
+                                                <button
+                                                    onClick={skipNext}
+                                                    className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
+                                                    title="Next"
+                                                >
+                                                    <SkipForward className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
+                                                </button>
                                             </div>
                                         </div>
-
-                                        <div className="flex justify-center items-center gap-3 sm:gap-4 md:gap-6 min-h-[32px] sm:min-h-[40px]">
-                                            <button
-                                                onClick={skipPrevious}
-                                                className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
-                                                title="Previous"
-                                            >
-                                                <SkipBack className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
-                                            </button>
-
-                                            <button
-                                                onClick={togglePlayback}
-                                                className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 bg-lime active:scale-90 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shrink-0"
-                                                title={track.is_playing ? 'Pause' : 'Play'}
-                                            >
-                                                {track.is_playing ? (
-                                                    <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark" />
-                                                ) : (
-                                                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-synapse-dark stroke-synapse-dark ml-0.5" />
-                                                )}
-                                            </button>
-
-                                            <button
-                                                onClick={skipNext}
-                                                className="p-1 sm:p-1.5 md:p-2 hover:bg-white/10 active:scale-95 rounded-full transition-all flex items-center justify-center h-6 w-6 sm:h-8 sm:w-8 text-white"
-                                                title="Next"
-                                            >
-                                                <SkipForward className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" />
-                                            </button>
+                                    </>
+                                ) : (
+                                    // NO TRACK -> CONNECT VIEW (Fallback/Modified)
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 sm:gap-3">
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-lime/20 rounded-full flex items-center justify-center">
+                                            <svg className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.485 17.302c-.215.354-.675.466-1.03.25-2.857-1.745-6.453-2.14-10.687-1.173-.406.093-.815-.16-.908-.567-.093-.406.16-.815.567-.908 4.636-1.06 8.594-.61 11.808 1.353.354.215.466.675.25 1.03zm1.464-3.26c-.27.44-.847.58-1.287.31-3.27-2.01-8.254-2.59-12.12-1.415-.494.15-1.025-.13-1.175-.624-.15-.494.13-1.025.624-1.175 4.414-1.34 9.907-.695 13.65 1.616.44.27.58.847.31 1.287zm.126-3.41c-3.922-2.33-10.385-2.545-14.136-1.406-.6.182-1.24-.16-1.423-.762-.182-.6.16-1.24.762-1.423 4.314-1.31 11.448-1.055 15.952 1.62.54.32.716 1.025.397 1.566-.32.54-1.025.716-1.566.397z" />
+                                            </svg>
                                         </div>
+                                        <div>
+                                            <h3 className="text-white font-bold text-xs sm:text-sm md:text-base">Spotify Connected</h3>
+                                            <p className="text-white/60 text-[10px] sm:text-xs">Waiting for playback...</p>
+                                        </div>
+                                        <button
+                                            onClick={togglePlayback}
+                                            className="bg-lime text-synapse-dark px-3 py-1 sm:px-4 sm:py-1.5 md:px-6 md:py-2 rounded-full font-bold text-[10px] sm:text-xs md:text-sm hover:bg-lime/90 transition-colors"
+                                        >
+                                            Resume
+                                        </button>
                                     </div>
-                                </>
+                                )
                             ) : (
+                                // NOT AUTHENTICATED -> CONNECT BUTTON
                                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 sm:gap-3">
                                     <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-lime/20 rounded-full flex items-center justify-center">
                                         <svg className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-lime" viewBox="0 0 24 24" fill="currentColor">

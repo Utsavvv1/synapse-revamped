@@ -22,9 +22,18 @@ interface SpotifyTokenResponse {
     refresh_token?: string;
 }
 
+export interface SpotifyUser {
+    display_name: string;
+    images: { url: string; height: number; width: number }[];
+    followers: { total: number };
+    id: string;
+    uri: string;
+}
+
 export function useSpotify() {
     const [token, setToken] = useState<string | null>(localStorage.getItem('spotify_access_token'));
     const [track, setTrack] = useState<SpotifyTrack | null>(null);
+    const [user, setUser] = useState<SpotifyUser | null>(null);
     const [localProgress, setLocalProgress] = useState<number>(0);
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!token);
 
@@ -39,6 +48,7 @@ export function useSpotify() {
         localStorage.removeItem('spotify_redirect_uri');
         setToken(null);
         setTrack(null);
+        setUser(null);
         setLocalProgress(0);
         setIsAuthenticated(false);
     }, []);
@@ -193,6 +203,30 @@ export function useSpotify() {
         }
     }, [token, refreshToken]);
 
+    const fetchUser = useCallback(async (tokenToUse?: string) => {
+        const activeToken = tokenToUse || token;
+        if (!activeToken) return;
+
+        try {
+            const response = await fetch('https://api.spotify.com/v1/me', {
+                headers: { Authorization: `Bearer ${activeToken}` },
+            });
+
+            if (response.status === 401) {
+                const newToken = await refreshToken();
+                if (newToken) fetchUser(newToken);
+                return;
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                setUser(data);
+            }
+        } catch (error) {
+            console.error('Error fetching Spotify user:', error);
+        }
+    }, [token, refreshToken]);
+
     // Local interpolator for smooth progress
     useEffect(() => {
         if (!track?.is_playing || isSeeking.current) return;
@@ -292,13 +326,15 @@ export function useSpotify() {
     useEffect(() => {
         if (isAuthenticated) {
             fetchCurrentTrack();
+            fetchUser();
             const interval = setInterval(() => fetchCurrentTrack(), 3000);
             return () => clearInterval(interval);
         }
-    }, [isAuthenticated, fetchCurrentTrack]);
+    }, [isAuthenticated, fetchCurrentTrack, fetchUser]);
 
     return {
         track,
+        user,
         progress: localProgress, // Export the smooth local progress
         login,
         logout,
