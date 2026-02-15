@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import SynapseHeader from '../layouts/SynapseHeader';
+import { useSpotify } from '../hooks/useSpotify';
 
 export default function StatisticsPage() {
+    const { track, login, isAuthenticated } = useSpotify();
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString("en-US", {
         hour12: false,
         hour: "2-digit",
@@ -148,24 +150,54 @@ export default function StatisticsPage() {
                         </div>
 
                         <div className="bg-white/10 backdrop-blur-md rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 flex flex-col gap-3 lg:gap-4 border border-white/5 flex-1 min-h-0">
-                            <div className="aspect-square w-full bg-white/5 rounded-xl lg:rounded-2xl overflow-hidden p-2 lg:p-4 max-h-[160px] lg:max-h-none mx-auto">
-                                <img
-                                    src="https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"
-                                    className="w-full h-full object-cover rounded-lg opacity-80"
-                                    alt="Song Art"
-                                />
-                            </div>
-                            <div className="text-center mt-auto">
-                                <p className="text-white font-bold text-lg lg:text-xl truncate">Song name here</p>
-                                <div className="w-full h-1 bg-white/20 rounded-full mt-2 lg:mt-4 mb-2 lg:mb-4 relative">
-                                    <div className="absolute left-0 top-0 h-full w-2/3 bg-white rounded-full"></div>
+                            {isAuthenticated && track ? (
+                                <>
+                                    <div className="aspect-square w-full bg-white/5 rounded-xl lg:rounded-2xl overflow-hidden p-2 lg:p-4 max-h-[160px] lg:max-h-none mx-auto">
+                                        <img
+                                            src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
+                                            className="w-full h-full object-cover rounded-lg opacity-80"
+                                            alt="Song Art"
+                                        />
+                                    </div>
+                                    <div className="text-center mt-auto">
+                                        <p className="text-white font-bold text-lg lg:text-xl truncate">{track.name}</p>
+                                        <p className="text-white/60 text-sm lg:text-base truncate">{track.artist}</p>
+                                        <div className="w-full h-1 bg-white/20 rounded-full mt-2 lg:mt-4 mb-2 lg:mb-4 relative">
+                                            <div
+                                                className="absolute left-0 top-0 h-full bg-white rounded-full transition-all duration-1000"
+                                                style={{ width: `${Math.min(100, (track.progress_ms / track.duration_ms) * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex justify-center items-center gap-4 lg:gap-6">
+                                            <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M0.46306 6.71851C-0.13031 6.32265 -0.13031 5.45064 0.46306 5.05478L7.65817 0.254638C8.3227 -0.188698 9.21314 0.287663 9.21314 1.08651V10.6868C9.21314 11.4856 8.3227 11.962 7.65817 11.5187L0.46306 6.71851Z" fill="white" /><rect width="2" height="13" rx="1" fill="white" /></svg>
+                                            {track.is_playing ? (
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+                                            ) : (
+                                                <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M11.988 10.4345C13.1931 9.64478 13.1931 7.87835 11.988 7.08869L3.09612 1.26252C1.76602 0.391008 0 1.34521 0 2.9354V14.5877C0 16.1779 1.76602 17.1321 3.09612 16.2606L11.988 10.4345Z" fill="white" /></svg>
+                                            )}
+                                            <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M8.75008 6.71851C9.34345 6.32265 9.34345 5.45064 8.75008 5.05478L1.55497 0.254638C0.89044 -0.188698 0 0.287663 0 1.08651V10.6868C0 11.4856 0.89044 11.962 1.55497 11.5187L8.75008 6.71851Z" fill="white" /><rect x="11" width="2" height="13" rx="1" fill="white" /></svg>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
+                                    <div className="w-16 h-16 bg-lime/20 rounded-full flex items-center justify-center">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" className="text-lime">
+                                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.485 17.302c-.215.354-.675.466-1.03.25-2.857-1.745-6.453-2.14-10.687-1.173-.406.093-.815-.16-.908-.567-.093-.406.16-.815.567-.908 4.636-1.06 8.594-.61 11.808 1.353.354.215.466.675.25 1.03zm1.464-3.26c-.27.44-.847.58-1.287.31-3.27-2.01-8.254-2.59-12.12-1.415-.494.15-1.025-.13-1.175-.624-.15-.494.13-1.025.624-1.175 4.414-1.34 9.907-.695 13.65 1.616.44.27.58.847.31 1.287zm.126-3.41c-3.922-2.33-10.385-2.545-14.136-1.406-.6.182-1.24-.16-1.423-.762-.182-.6.16-1.24.762-1.423 4.314-1.31 11.448-1.055 15.952 1.62.54.32.716 1.025.397 1.566-.32.54-1.025.716-1.566.397z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-white font-bold text-lg lg:text-xl">Spotify</h3>
+                                        <p className="text-white/60 text-sm">Connect to see what's playing</p>
+                                    </div>
+                                    <button
+                                        onClick={login}
+                                        className="bg-lime text-[#061615] px-6 py-2 rounded-full font-bold text-sm lg:text-base hover:bg-lime-dark transition-colors"
+                                    >
+                                        Connect
+                                    </button>
                                 </div>
-                                <div className="flex justify-center items-center gap-4 lg:gap-6">
-                                    <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M0.46306 6.71851C-0.13031 6.32265 -0.13031 5.45064 0.46306 5.05478L7.65817 0.254638C8.3227 -0.188698 9.21314 0.287663 9.21314 1.08651V10.6868C9.21314 11.4856 8.3227 11.962 7.65817 11.5187L0.46306 6.71851Z" fill="white" /><rect width="2" height="13" rx="1" fill="white" /></svg>
-                                    <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M11.988 10.4345C13.1931 9.64478 13.1931 7.87835 11.988 7.08869L3.09612 1.26252C1.76602 0.391008 0 1.34521 0 2.9354V14.5877C0 16.1779 1.76602 17.1321 3.09612 16.2606L11.988 10.4345Z" fill="white" /></svg>
-                                    <svg width="18" height="18" viewBox="0 0 22 23" fill="none"><path d="M8.75008 6.71851C9.34345 6.32265 9.34345 5.45064 8.75008 5.05478L1.55497 0.254638C0.89044 -0.188698 0 0.287663 0 1.08651V10.6868C0 11.4856 0.89044 11.962 1.55497 11.5187L8.75008 6.71851Z" fill="white" /><rect x="11" width="2" height="13" rx="1" fill="white" /></svg>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 

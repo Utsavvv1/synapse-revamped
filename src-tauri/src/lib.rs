@@ -165,6 +165,28 @@ fn start_focus_mode_cmd() -> Result<String, String> {
     Ok("Focus mode started".to_string())
 }
 
+#[tauri::command]
+async fn backend_spotify_token_exchange(
+    client_id: String,
+    code: String,
+    redirect_uri: String,
+    code_verifier: String,
+) -> Result<main_logic::spotify::SpotifyTokenResponse, String> {
+    main_logic::spotify::exchange_token(client_id, code, redirect_uri, code_verifier)
+        .await
+        .map_err(|e| format!("{:?}", e))
+}
+
+#[tauri::command]
+async fn backend_spotify_refresh_token(
+    client_id: String,
+    refresh_token: String,
+) -> Result<main_logic::spotify::SpotifyTokenResponse, String> {
+    main_logic::spotify::refresh_token(client_id, refresh_token)
+        .await
+        .map_err(|e| format!("{:?}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::from_filename(".env").ok();
@@ -192,7 +214,9 @@ pub fn run() {
             stop_monitoring_cmd,
             is_monitoring_cmd,
             kill_app_cmd,
-            snooze_app_cmd
+            snooze_app_cmd,
+            backend_spotify_token_exchange,
+            backend_spotify_refresh_token
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

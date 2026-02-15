@@ -25,6 +25,7 @@ pub mod logger;
 pub mod metrics;
 pub mod platform;
 pub mod session;
+pub mod spotify;
 pub mod sync;
 pub mod types;
 
