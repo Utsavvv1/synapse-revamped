@@ -50,13 +50,13 @@ const MOCK_DASHBOARD_DATA: DashboardData = {
     weeklySummary: {
         totalTime: "34h 20m",
         history: [
-            { day: 'M', hours: 4.5 },
-            { day: 'T', hours: 6.2 },
-            { day: 'W', hours: 3.8 },
-            { day: 'Th', hours: 7.5 },
-            { day: 'F', hours: 5.1 },
-            { day: 'S', hours: 2.3 },
-            { day: 'S', hours: 10.5 },
+            { day: 'M', hours: 60.5 },
+            { day: 'T', hours: 92.2 },
+            { day: 'W', hours: 80.8 },
+            { day: 'Th', hours: 60.5 },
+            { day: 'F', hours: 100.1 },
+            { day: 'S', hours: 110.3 },
+            { day: 'S', hours: 110.5 },
         ]
     },
     stats: {
@@ -190,15 +190,31 @@ export default function StatisticsPage() {
                             {/* Bar Graph Container */}
                             <div className="relative flex-1 min-h-0 flex flex-col">
                                 {(() => {
-                                    const maxHours = Math.max(...MOCK_DASHBOARD_DATA.weeklySummary.history.map(d => d.hours));
-                                    let baseInterval = maxHours > 5 ? 1 : 0.5;
+                                    const maxHours = Math.max(...MOCK_DASHBOARD_DATA.weeklySummary.history.map(d => d.hours), 0.1);
+
+                                    // Robust algorithm for "nice" intervals (e.g., 0.5, 1, 2, 5, 10, 20, 50, 100...)
+                                    const getNiceInterval = (max: number) => {
+                                        const rawInterval = max / 10;
+                                        const magnitude = Math.pow(10, Math.floor(Math.log10(rawInterval)));
+                                        const normalized = rawInterval / magnitude;
+
+                                        let step;
+                                        if (normalized < 1.5) step = 1;
+                                        else if (normalized < 3) step = 2;
+                                        else if (normalized < 7.5) step = 5;
+                                        else step = 10;
+
+                                        return Math.max(0.5, step * magnitude);
+                                    };
+
+                                    const baseInterval = getNiceInterval(maxHours);
 
                                     // 3-tier density: Full (>1280), Half (1024-1280), Quarter (<1024)
                                     const intervalMultiplier = gridDensityTier === 'small' ? 4 : gridDensityTier === 'medium' ? 2 : 1;
                                     const interval = baseInterval * intervalMultiplier;
 
-                                    const steps = Math.max(gridDensityTier === 'small' ? 2 : 5, Math.ceil(maxHours / interval));
-                                    const chartMax = steps * interval;
+                                    const steps = Math.ceil(maxHours / interval);
+                                    const chartMax = Math.max(interval, steps * interval);
                                     const gridValues = Array.from({ length: steps + 1 }, (_, i) => (steps - i) * interval);
 
                                     return (
