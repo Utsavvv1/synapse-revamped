@@ -98,6 +98,7 @@ export default function StatisticsPage() {
 
     // IDLE STATE LOGIC
     const [isIdle, setIsIdle] = useState(false);
+    const [hoveredDistIndex, setHoveredDistIndex] = useState<number | null>(null);
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
@@ -361,7 +362,7 @@ export default function StatisticsPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-1.5 sm:gap-2 flex-1">
-                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-2 sm:p-2.5 relative overflow-hidden min-h-[60px] sm:min-h-[70px]">
+                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 relative overflow-hidden min-h-[50px] sm:min-h-[60px]">
                                 <h2 className="text-[10px] sm:text-xs md:text-sm font-semibold text-lime leading-tight relative z-20">Distractions</h2>
                                 <p className="text-[9px] sm:text-[10px] font-semibold text-white/60 relative z-20">Blocked</p>
                                 <div
@@ -398,73 +399,163 @@ export default function StatisticsPage() {
                                     </span>
                                 </div>
                             </div>
-                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-2 sm:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 flex flex-col gap-1 overflow-hidden">
                                 <div className="flex flex-col gap-0.5">
                                     <h2 className="text-[12px] sm:text-sm md:text-base font-bold text-lime leading-tight">Top Distractions</h2>
                                     <p className="text-[10px] sm:text-[11px] font-medium text-white/40">This Week</p>
                                 </div>
 
-                                {/* GitHub-style Distribution Bar v3 */}
-                                <div className="flex h-2.5 sm:h-3 w-full mt-2 bg-white/5 gap-1.5 items-center">
-                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => (
-                                        <div
-                                            key={i}
-                                            className="group h-full relative"
-                                            style={{ flex: item.count }}
-                                        >
+                                {/* Distraction Distribution View (Responsive Layout Switch) */}
+                                {windowWidth >= 1024 ? (
+                                    /* Large Mode: GitHub-style Unified Bar v3 */
+                                    <div
+                                        className="flex w-full mt-0.5 bg-white/5 gap-1.5 items-center relative z-20"
+                                        style={{ height: `${Math.max(4, Math.min(8, 8 * (windowHeight / 800)))}px` }}
+                                    >
+                                        {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => (
                                             <div
-                                                className="w-full h-full rounded-full transition-all duration-300 hover:brightness-125 cursor-help shadow-sm"
-                                                style={{ backgroundColor: item.color }}
-                                            />
-                                            {/* Custom Hover Label (Matching Bar Graph Style) */}
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                                                <div className="bg-lime text-synapse-dark text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded shadow-xl whitespace-nowrap flex flex-col items-center leading-tight">
-                                                    <span className="uppercase tracking-tighter opacity-70 text-[7px]">{item.name}</span>
-                                                    <span>{item.count} dist. ({item.time})</span>
-                                                </div>
-                                                {/* Tooltip Arrow */}
-                                                <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-lime mx-auto"></div>
+                                                key={i}
+                                                className="group h-full relative"
+                                                style={{ flex: item.count }}
+                                                onMouseEnter={() => setHoveredDistIndex(i)}
+                                                onMouseLeave={() => setHoveredDistIndex(null)}
+                                            >
+                                                <div
+                                                    className="w-full h-full rounded-full transition-all duration-300 hover:brightness-125 cursor-help shadow-sm"
+                                                    style={{ backgroundColor: item.color }}
+                                                />
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    /* Small Mode: Vertically Stacked Bars with Names */
+                                    <div className="flex flex-col gap-1 mt-0.5 w-full relative z-20">
+                                        {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => (
+                                            <div key={i} className="flex items-center gap-2">
+                                                <div
+                                                    className="relative flex-1"
+                                                    onMouseEnter={() => setHoveredDistIndex(i)}
+                                                    onMouseLeave={() => setHoveredDistIndex(null)}
+                                                >
+                                                    <div
+                                                        className="w-full bg-white/5 rounded-full overflow-hidden"
+                                                        style={{ height: `${Math.max(4, Math.min(8, 8 * (windowHeight / 800)))}px` }}
+                                                    >
+                                                        <div
+                                                            className="h-full rounded-full shadow-sm"
+                                                            style={{
+                                                                backgroundColor: item.color,
+                                                                width: `${(item.count / MOCK_DASHBOARD_DATA.distractions.topDistractions.reduce((acc, d) => acc + d.count, 0)) * 100}%`
+                                                            }}
+                                                        />
+                                                    </div>
 
-                                {/* Legend: Adaptive Grid (1x4 or 2x2) with Dynamic Scaling */}
+                                                    {/* Tooltip on hover - Exact Match to Screenshot (Lime Box) */}
+                                                    <div
+                                                        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 pointer-events-none transition-all duration-200 z-50 ${hoveredDistIndex === i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}
+                                                    >
+                                                        <div className="bg-lime text-synapse-dark text-[10px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap select-none">
+                                                            {item.count} • {item.time}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* App Name - Aggressively Cleaned to Remove "Green Background" */}
+                                                <p className="text-[10px] sm:text-[10px] font-medium text-white/60 tracking-tight whitespace-nowrap !bg-transparent !bg-none !border-none !shadow-none select-none m-0 p-0 leading-none">
+                                                    {item.name}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Distraction Detail Background Overlay (Visible only in Large Mode) */}
                                 <div
-                                    className={`mt-auto py-0.5 grid gap-x-4`}
+                                    className="relative flex items-center justify-center pointer-events-none overflow-hidden"
                                     style={{
-                                        gridTemplateColumns: windowWidth < 1270 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(1, minmax(0, 1fr))',
-                                        gap: `${Math.max(1, 4 * (windowHeight / 800))}px ${windowWidth < 1270 ? '8px' : '0px'}`
+                                        height: windowWidth < 1024 ? '0px' : `${Math.max(24, Math.min(48, 48 * Math.min(Math.pow(windowWidth / 1280, 0.5), Math.pow(windowHeight / 800, 0.8))))}px`,
+                                        marginTop: windowWidth < 1024 ? '0px' : '8px',
+                                        opacity: windowWidth < 1024 ? 0 : 1
                                     }}
                                 >
-                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => {
-                                        const scaleFactor = Math.min(
-                                            Math.pow(windowWidth / 1280, 3.0),
-                                            Math.pow(windowHeight / 800, 3.5)
+                                    {hoveredDistIndex !== null && (() => {
+                                        const scaleFactorOverlay = Math.min(
+                                            Math.pow(windowWidth / 1280, 1.5),
+                                            Math.pow(windowHeight / 800, 2.0)
                                         );
-                                        const fontSize = Math.max(7, Math.min(13, 13 * scaleFactor));
-                                        const dotSize = Math.max(6, Math.min(10, 10 * scaleFactor));
-
                                         return (
-                                            <div key={i} className="flex items-center group/item" style={{ gap: `${fontSize * 0.3}px` }}>
-                                                <div
-                                                    className="rounded-full flex-shrink-0 shadow-sm transition-transform group-hover/item:scale-110"
-                                                    style={{
-                                                        backgroundColor: item.color,
-                                                        width: `${dotSize}px`,
-                                                        height: `${dotSize}px`
-                                                    }}
-                                                />
+                                            <div
+                                                className="absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-out"
+                                                style={{
+                                                    opacity: 1,
+                                                    transform: 'translateY(0)',
+                                                    gap: `${2 * scaleFactorOverlay}px`
+                                                }}
+                                            >
                                                 <span
-                                                    className="font-medium text-white/80 tracking-tight truncate transition-colors group-hover/item:text-white leading-tight"
-                                                    style={{ fontSize: `${fontSize}px` }}
+                                                    className="font-black text-white uppercase tracking-[0.2em] leading-none"
+                                                    style={{ fontSize: `${Math.max(8, Math.min(12, 12 * scaleFactorOverlay))}px` }}
                                                 >
-                                                    {item.name}
+                                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions[hoveredDistIndex].name}
+                                                </span>
+                                                <span
+                                                    className="font-bold text-white/30 uppercase tracking-widest leading-none"
+                                                    style={{ fontSize: `${Math.max(6, Math.min(9, 9 * scaleFactorOverlay))}px` }}
+                                                >
+                                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions[hoveredDistIndex].count} Distractions
+                                                </span>
+                                                <span
+                                                    className="font-medium text-white/20 uppercase tracking-[0.15em] leading-none"
+                                                    style={{ fontSize: `${Math.max(6, Math.min(8, 8 * scaleFactorOverlay))}px` }}
+                                                >
+                                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions[hoveredDistIndex].time} Spent
                                                 </span>
                                             </div>
                                         );
-                                    })}
+                                    })()}
+                                    {hoveredDistIndex === null && (
+                                        <div className="opacity-0 transition-opacity duration-500" />
+                                    )}
                                 </div>
+
+                                {/* Large Mode Legend: Adaptive Grid (1x4 or 2x2) with Dynamic Scaling */}
+                                {windowWidth >= 1024 && (
+                                    <div
+                                        className={`mt-1 py-0.5 grid gap-x-4`} // Changed mt-auto to mt-1 for reduced gap
+                                        style={{
+                                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', // Force 2 columns (2x2)
+                                            gap: `${Math.max(1, 4 * (windowHeight / 800))}px 8px`
+                                        }}
+                                    >
+                                        {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => {
+                                            const scaleFactor = Math.min(
+                                                Math.pow(windowWidth / 1280, 3.0),
+                                                Math.pow(windowHeight / 800, 3.5)
+                                            );
+                                            const fontSize = Math.max(7, Math.min(13, 13 * scaleFactor));
+                                            const dotSize = Math.max(6, Math.min(10, 10 * scaleFactor));
+
+                                            return (
+                                                <div key={i} className="flex items-center group/item" style={{ gap: `${fontSize * 0.3}px` }}>
+                                                    <div
+                                                        className="rounded-full flex-shrink-0 shadow-sm transition-transform group-hover/item:scale-110"
+                                                        style={{
+                                                            backgroundColor: item.color,
+                                                            width: `${dotSize}px`,
+                                                            height: `${dotSize}px`
+                                                        }}
+                                                    />
+                                                    <span
+                                                        className="font-medium text-white/80 tracking-tight truncate transition-colors group-hover/item:text-white leading-tight"
+                                                        style={{ fontSize: `${fontSize}px` }}
+                                                    >
+                                                        {item.name}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
