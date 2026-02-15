@@ -165,10 +165,10 @@ export default function StatisticsPage() {
                         <div className="bg-white/10 backdrop-blur-md rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 flex flex-col gap-3 lg:gap-4 border border-white/5 flex-1 min-h-0">
                             {isAuthenticated && track ? (
                                 <>
-                                    <div className="aspect-square w-full bg-white/5 rounded-xl lg:rounded-2xl overflow-hidden p-2 lg:p-4 max-h-[160px] lg:max-h-none mx-auto relative group">
+                                    <div className="w-full rounded-xl lg:rounded-2xl overflow-hidden max-h-[160px] lg:max-h-none mx-auto relative group">
                                         <img
                                             src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
-                                            className="w-full h-full object-cover rounded-lg opacity-80"
+                                            className="w-full h-full object-cover opacity-90"
                                             alt="Song Art"
                                         />
                                         <button
