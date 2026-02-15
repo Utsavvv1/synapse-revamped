@@ -56,7 +56,7 @@ const MOCK_DASHBOARD_DATA: DashboardData = {
             { day: 'Th', hours: 7.5 },
             { day: 'F', hours: 5.1 },
             { day: 'S', hours: 2.3 },
-            { day: 'S', hours: 1.5 },
+            { day: 'S', hours: 10.5 },
         ]
     },
     stats: {
@@ -139,9 +139,19 @@ export default function StatisticsPage() {
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
     const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const gridDensityTier = windowWidth < 1024 ? 'small' : windowWidth < 1280 ? 'medium' : 'large';
+
     return (
         <div
-            className="h-screen w-screen p-2 sm:p-3 md:p-4 lg:p-6 bg-black bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col font-sans"
+            className="h-screen w-screen p-2 sm:p-3 md:p-4 lg:p-6 bg-black bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col font-sans selection:bg-lime/30"
             style={{
                 backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), var(--synapse-bg-image)`,
                 backgroundAttachment: 'fixed'
@@ -178,36 +188,80 @@ export default function StatisticsPage() {
                             </div>
 
                             {/* Bar Graph Container */}
-                            <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
-                                {/* Dotted Horizontal Lines */}
-                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-5 sm:pb-6">
-                                    {[...Array(10)].map((_, i) => (
-                                        <div key={i} className="w-full border-t border-white/20 border-dashed"></div>
-                                    ))}
-                                </div>
+                            <div className="relative flex-1 min-h-0 flex flex-col">
+                                {(() => {
+                                    const maxHours = Math.max(...MOCK_DASHBOARD_DATA.weeklySummary.history.map(d => d.hours));
+                                    let baseInterval = maxHours > 5 ? 1 : 0.5;
 
-                                <div className="flex items-end justify-between gap-1 sm:gap-2 h-full relative z-10 px-1">
-                                    {MOCK_DASHBOARD_DATA.weeklySummary.history.map((item, i) => {
-                                        const maxHours = Math.max(...MOCK_DASHBOARD_DATA.weeklySummary.history.map(d => d.hours));
-                                        const heightPercent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0;
+                                    // 3-tier density: Full (>1280), Half (1024-1280), Quarter (<1024)
+                                    const intervalMultiplier = gridDensityTier === 'small' ? 4 : gridDensityTier === 'medium' ? 2 : 1;
+                                    const interval = baseInterval * intervalMultiplier;
 
-                                        // Highlight today (Sunday index 6 based on (getDay + 6) % 7)
-                                        const todayIndex = (new Date().getDay() + 6) % 7;
-                                        const isToday = i === todayIndex;
+                                    const steps = Math.max(gridDensityTier === 'small' ? 2 : 5, Math.ceil(maxHours / interval));
+                                    const chartMax = steps * interval;
+                                    const gridValues = Array.from({ length: steps + 1 }, (_, i) => (steps - i) * interval);
 
-                                        return (
-                                            <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-1.5 sm:gap-2 group min-w-0">
-                                                <div
-                                                    className={`w-full max-w-[14px] sm:max-w-[18px] md:max-w-[24px] ${isToday ? 'bg-lime' : 'bg-lime/20'} rounded-[3px] relative group-hover:bg-white transition-all duration-300`}
-                                                    style={{ height: `${heightPercent}%` }}
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
-                                                </div>
-                                                <span className={`text-[8px] sm:text-[10px] ${isToday ? 'text-white font-bold' : 'text-white/40 font-medium'}`}>{item.day}</span>
+                                    return (
+                                        <>
+                                            {/* Grid Lines Overlay */}
+                                            <div className="absolute inset-x-0 top-0 bottom-6 pointer-events-none">
+                                                {gridValues.map((val, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="absolute left-0 right-0 h-0 flex items-center"
+                                                        style={{ top: `${(i / steps) * 100}%` }}
+                                                    >
+                                                        <span className="text-[7px] sm:text-[8px] text-white/20 font-medium whitespace-nowrap min-w-[28px] -translate-y-1/2">
+                                                            {val % 1 === 0 ? `${val}h` : `${val.toFixed(1)}h`}
+                                                        </span>
+                                                        <div className="flex-1 border-t border-white/10 sm:border-white/20 border-dashed"></div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+
+                                            {/* Bars Overlay - Perfectly aligned with Grid Area */}
+                                            <div className="absolute inset-x-0 top-0 bottom-6 left-8 right-1 flex items-end justify-between gap-1 sm:gap-2 z-10">
+                                                {MOCK_DASHBOARD_DATA.weeklySummary.history.map((item, i) => {
+                                                    const heightPercent = chartMax > 0 ? (item.hours / chartMax) * 100 : 0;
+                                                    const todayIndex = (new Date().getDay() + 6) % 7;
+                                                    const isToday = i === todayIndex;
+
+                                                    return (
+                                                        <div key={i} className="flex-1 h-full flex flex-col justify-end items-center relative">
+                                                            <div
+                                                                className={`group w-full max-w-[14px] sm:max-w-[18px] md:max-w-[24px] ${isToday ? 'bg-lime' : 'bg-lime/20'} rounded-[3px] relative transition-all duration-300`}
+                                                                style={{ height: `${heightPercent}%` }}
+                                                            >
+                                                                {/* Hover Label */}
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                                                                    <div className="bg-lime text-synapse-dark text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap">
+                                                                        {item.hours % 1 === 0 ? `${item.hours}h` : `${item.hours.toFixed(1)}h`}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Day Labels - Outside the bar/grid scaling area */}
+                                            <div className="mt-auto flex justify-between gap-1 sm:gap-2 pl-8 pr-1 h-6">
+                                                {MOCK_DASHBOARD_DATA.weeklySummary.history.map((item, i) => {
+                                                    const todayIndex = (new Date().getDay() + 6) % 7;
+                                                    const isToday = i === todayIndex;
+                                                    return (
+                                                        <div key={i} className="flex-1 flex justify-center items-end">
+                                                            <span className={`text-[8px] sm:text-[10px] ${isToday ? 'text-white font-bold' : 'text-white/40 font-medium'}`}>
+                                                                {item.day}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
 
