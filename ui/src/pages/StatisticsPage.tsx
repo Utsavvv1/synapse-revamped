@@ -50,13 +50,13 @@ const MOCK_DASHBOARD_DATA: DashboardData = {
     weeklySummary: {
         totalTime: "34h 20m",
         history: [
-            { day: 'M', hours: 60.5 },
-            { day: 'T', hours: 92.2 },
-            { day: 'W', hours: 80.8 },
-            { day: 'Th', hours: 60.5 },
-            { day: 'F', hours: 100.1 },
-            { day: 'S', hours: 110.3 },
-            { day: 'S', hours: 110.5 },
+            { day: 'M', hours: 0.5 },
+            { day: 'T', hours: 2.2 },
+            { day: 'W', hours: 0.8 },
+            { day: 'Th', hours: 0.5 },
+            { day: 'F', hours: 0.1 },
+            { day: 'S', hours: 0.3 },
+            { day: 'S', hours: 0.5 },
         ]
     },
     stats: {
@@ -139,13 +139,21 @@ export default function StatisticsPage() {
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
     const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    const [windowDimensions, setWindowDimensions] = useState({
+        width: window.innerWidth,
+        height: window.innerHeight
+    });
 
     useEffect(() => {
-        const handleResize = () => setWindowWidth(window.innerWidth);
+        const handleResize = () => setWindowDimensions({
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    const { width: windowWidth, height: windowHeight } = windowDimensions;
 
     const gridDensityTier = windowWidth < 1024 ? 'small' : windowWidth < 1280 ? 'medium' : 'large';
 
@@ -353,10 +361,38 @@ export default function StatisticsPage() {
 
                         <div className="grid grid-cols-2 gap-1.5 sm:gap-2 flex-1">
                             <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-2 sm:p-2.5 relative overflow-hidden min-h-[60px] sm:min-h-[70px]">
-                                <h2 className="text-[10px] sm:text-xs md:text-sm font-semibold text-lime leading-tight">Distractions</h2>
-                                <p className="text-[9px] sm:text-[10px] font-semibold text-white/60">Blocked</p>
-                                <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 w-12 h-12 sm:w-16 sm:h-16 bg-lime rounded-full flex items-center justify-center">
-                                    <span className="text-sm sm:text-base md:text-lg font-bold text-synapse-dark relative top-[-2px] left-[-2px]">
+                                <h2 className="text-[10px] sm:text-xs md:text-sm font-semibold text-lime leading-tight relative z-20">Distractions</h2>
+                                <p className="text-[9px] sm:text-[10px] font-semibold text-white/60 relative z-20">Blocked</p>
+                                <div
+                                    className="absolute bg-lime rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ease-out z-0"
+                                    style={{
+                                        // Ultra-Aggressive Height Reduction Scaling: 
+                                        // Shrinks way faster when height decreases (h-scale ^ 2.5) than when width decreases (w-scale ^ 1.2)
+                                        width: `${Math.max(30, Math.min(240, 240 * Math.min(
+                                            Math.pow(windowWidth / 1280, 2),
+                                            Math.pow(windowHeight / 800, 2.5)
+                                        )))}px`,
+                                        height: `${Math.max(30, Math.min(240, 240 * Math.min(
+                                            Math.pow(windowWidth / 1280, 2),
+                                            Math.pow(windowHeight / 800, 2.5)
+                                        )))}px`,
+                                        // Pushed further into the corner
+                                        bottom: '-20%',
+                                        right: '-20%',
+                                    }}
+                                >
+                                    <span
+                                        className="font-black text-synapse-dark tracking-tighter leading-none select-none transition-all duration-300"
+                                        style={{
+                                            // Proportional font reduction matching ultra-aggressive height-sensitive shrink
+                                            fontSize: `${Math.max(12, Math.min(110, 110 * Math.min(
+                                                Math.pow(windowWidth / 1280, 1.2),
+                                                Math.pow(windowHeight / 800, 2.5)
+                                            )))}px`,
+                                            // Position adjustment for overflow
+                                            transform: 'translate(-15%, -15%)'
+                                        }}
+                                    >
                                         {MOCK_DASHBOARD_DATA.distractions.blockedCount}
                                     </span>
                                 </div>
