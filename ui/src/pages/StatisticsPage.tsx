@@ -236,7 +236,7 @@ export default function StatisticsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col flex-1 lg:flex-shrink-0">
+                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col flex-1 lg:flex-shrink-0 min-h-0">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
                                 <h3 className="text-[10px] sm:text-xs md:text-sm font-bold text-lime uppercase">
                                     {format(currentMonth, 'MMMM yyyy')}
@@ -260,10 +260,12 @@ export default function StatisticsPage() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-7 gap-y-1 sm:gap-y-1.5 md:gap-y-2 text-center">
+                            <div className="grid grid-cols-7 mb-1 text-center shrink-0">
                                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => (
                                     <div key={d} className="text-[8px] sm:text-[9px] md:text-[10px] font-bold text-lime/40">{d}</div>
                                 ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-y-1 text-center flex-1 min-h-0 auto-rows-fr items-center">
                                 {calendarDays.map(day => {
                                     const isCurrentMonth = isSameMonth(day, monthStart);
                                     const isTodayDate = isToday(day);
