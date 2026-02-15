@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    format,
+    addMonths,
+    subMonths,
+    startOfMonth,
+    endOfMonth,
+    startOfWeek,
+    endOfWeek,
+    eachDayOfInterval,
+    isSameMonth,
+    isToday
+} from 'date-fns';
 import { SkipBack, SkipForward, Play, Pause, ArrowLeft } from 'lucide-react';
 import SynapseHeader from '../layouts/SynapseHeader';
 import { useSpotify } from '../hooks/useSpotify';
@@ -15,6 +27,7 @@ const formatTime = (ms: number) => {
 export default function StatisticsPage() {
     const navigate = useNavigate();
     const { track, progress, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
+    const [currentMonth, setCurrentMonth] = useState(new Date());
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString("en-US", {
         hour12: false,
         hour: "2-digit",
@@ -35,6 +48,16 @@ export default function StatisticsPage() {
         }, 1000);
         return () => clearInterval(timer);
     }, []);
+
+    const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+    const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+
+    // Generate Calendar Days
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
         <div
@@ -155,21 +178,49 @@ export default function StatisticsPage() {
 
                         <div className="bg-[#061615] rounded-[19px] p-5 lg:p-6 flex flex-col flex-shrink-0">
                             <div className="flex justify-between items-center mb-4 lg:mb-6">
-                                <h3 className="text-[13px] lg:text-[15px] font-bold text-lime uppercase">May 2023</h3>
+                                <h3 className="text-[13px] lg:text-[15px] font-bold text-lime uppercase">
+                                    {format(currentMonth, 'MMMM yyyy')}
+                                </h3>
                                 <div className="flex gap-2">
-                                    <button className="p-1"><svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M5.80983 0.463481C6.05104 0.211 6.45422 0.211 6.69543 0.463481C6.92158 0.700182 6.92158 1.07288 6.69543 1.30958L3.63022 4.51793L6.69543 7.72628C6.92158 7.96298 6.92158 8.33567 6.69543 8.57238C6.45422 8.82486 6.05104 8.82486 5.80983 8.57238L1.93626 4.51793L5.80983 0.463481Z" fill="#AFAFAF" /></svg></button>
-                                    <button className="p-1"><svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M3.22603 0.463481C2.98481 0.211 2.58164 0.211 2.34042 0.463481C2.11428 0.700182 2.11428 1.07288 2.34042 1.30958L5.40564 4.51793L2.34042 7.72628C2.11428 7.96298 2.11428 8.33567 2.34042 8.57238C2.58164 8.82486 2.98481 8.82486 3.22603 8.57238L7.09959 4.51793L3.22603 0.463481Z" fill="#C4D946" /></svg></button>
+                                    <button
+                                        onClick={handlePrevMonth}
+                                        className="p-1 hover:bg-white/5 rounded-md transition-colors"
+                                    >
+                                        <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                                            <path d="M5.80983 0.463481C6.05104 0.211 6.45422 0.211 6.69543 0.463481C6.92158 0.700182 6.92158 1.07288 6.69543 1.30958L3.63022 4.51793L6.69543 7.72628C6.92158 7.96298 6.92158 8.33567 6.69543 8.57238C6.45422 8.82486 6.05104 8.82486 5.80983 8.57238L1.93626 4.51793L5.80983 0.463481Z" fill="#AFAFAF" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={handleNextMonth}
+                                        className="p-1 hover:bg-white/5 rounded-md transition-colors"
+                                    >
+                                        <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                                            <path d="M3.22603 0.463481C2.98481 0.211 2.58164 0.211 2.34042 0.463481C2.11428 0.700182 2.11428 1.07288 2.34042 1.30958L5.40564 4.51793L2.34042 7.72628C2.11428 7.96298 2.11428 8.33567 2.34042 8.57238C2.58164 8.82486 2.98481 8.82486 3.22603 8.57238L7.09959 4.51793L3.22603 0.463481Z" fill="#C4D946" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-7 gap-y-2 lg:gap-y-3 text-center">
                                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => (
                                     <div key={d} className="text-[9px] lg:text-[10px] font-bold text-lime/40">{d}</div>
                                 ))}
-                                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                                    <div key={day} className={`text-[10px] lg:text-xs py-1 font-semibold ${day === 18 ? 'bg-lime text-black rounded-md' : 'text-white/60'}`}>
-                                        {day}
-                                    </div>
-                                ))}
+                                {calendarDays.map(day => {
+                                    const isCurrentMonth = isSameMonth(day, monthStart);
+                                    const isTodayDate = isToday(day);
+                                    return (
+                                        <div
+                                            key={day.toISOString()}
+                                            className={`text-[10px] lg:text-xs py-1 font-semibold transition-all ${isTodayDate
+                                                ? 'bg-lime text-black rounded-md'
+                                                : !isCurrentMonth
+                                                    ? 'text-white/20'
+                                                    : 'text-white'
+                                                }`}
+                                        >
+                                            {format(day, 'd')}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
