@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SkipBack, SkipForward, Play, Pause } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { SkipBack, SkipForward, Play, Pause, ArrowLeft } from 'lucide-react';
 import SynapseHeader from '../layouts/SynapseHeader';
 import { useSpotify } from '../hooks/useSpotify';
 
@@ -12,6 +13,7 @@ const formatTime = (ms: number) => {
 };
 
 export default function StatisticsPage() {
+    const navigate = useNavigate();
     const { track, progress, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString("en-US", {
         hour12: false,
@@ -51,9 +53,18 @@ export default function StatisticsPage() {
 
                     {/* COLUMN 1: Dashboard Title + Weekly Summary + Stats Row */}
                     <div className="flex flex-col gap-4 lg:gap-6 min-h-0">
-                        <h1 className="text-4xl lg:text-6xl xl:text-7xl font-semibold text-[#F3F3F3] tracking-tighter leading-none flex-shrink-0">
-                            Dashboard
-                        </h1>
+                        <div className="flex items-center gap-4 lg:gap-6">
+                            <button
+                                onClick={() => navigate('/')}
+                                className="p-2 lg:p-3 bg-[#061615] hover:bg-[#364721] text-lime rounded-full transition-all flex items-center justify-center shadow-lg active:scale-95 group"
+                                title="Back to Dashboard"
+                            >
+                                <ArrowLeft className="w-6 h-6 lg:w-8 lg:h-8 group-hover:-translate-x-1 transition-transform" />
+                            </button>
+                            <h1 className="text-4xl lg:text-6xl xl:text-7xl font-semibold text-[#F3F3F3] tracking-tighter leading-none flex-shrink-0">
+                                Dashboard
+                            </h1>
+                        </div>
 
                         <div className="bg-[#061615] rounded-[30px] p-6 flex flex-col justify-between flex-1 min-h-0">
                             <h2 className="text-2xl lg:text-[36px] font-semibold text-lime tracking-tight leading-tight">
