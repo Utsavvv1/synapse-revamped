@@ -299,14 +299,14 @@ export default function StatisticsPage() {
 
                             <div className="bg-lime rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-3 flex flex-col gap-0.5 sm:gap-1 min-h-[50px] sm:min-h-[60px] md:min-h-[80px]">
                                 <h3 className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-synapse-dark tracking-tight">Average</h3>
-                                <div className="bg-white/10 rounded py-0.5 sm:py-1 flex items-center justify-center mt-auto">
+                                <div className="bg-black/30 rounded py-0.5 sm:py-1 flex items-center justify-center mt-auto">
                                     <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-synapse-dark tracking-tight leading-none">{MOCK_DASHBOARD_DATA.stats.average}</span>
                                 </div>
                             </div>
 
                             <div className="bg-lime rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-3 flex flex-col gap-0.5 sm:gap-1 min-h-[50px] sm:min-h-[60px] md:min-h-[80px]">
                                 <h3 className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-synapse-dark tracking-tight">Longest</h3>
-                                <div className="bg-white/10 rounded py-0.5 sm:py-1 flex items-center justify-center mt-auto">
+                                <div className="bg-black/30 rounded py-0.5 sm:py-1 flex items-center justify-center mt-auto">
                                     <span className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-synapse-dark tracking-tight leading-none">{MOCK_DASHBOARD_DATA.stats.longest}</span>
                                 </div>
                             </div>
@@ -433,20 +433,20 @@ export default function StatisticsPage() {
                                 <div
                                     className={`mt-auto py-0.5 grid gap-x-4`}
                                     style={{
-                                        gridTemplateColumns: windowWidth < 1100 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(1, minmax(0, 1fr))',
-                                        gap: `${Math.max(2, Math.min(6, 6 * Math.min(windowWidth / 1280, windowHeight / 800)))}px`
+                                        gridTemplateColumns: windowWidth < 1270 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(1, minmax(0, 1fr))',
+                                        gap: `${Math.max(1, 4 * (windowHeight / 800))}px ${windowWidth < 1270 ? '8px' : '0px'}`
                                     }}
                                 >
                                     {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => {
                                         const scaleFactor = Math.min(
-                                            Math.pow(windowWidth / 1280, 1.2),
-                                            Math.pow(windowHeight / 800, 2.0)
+                                            Math.pow(windowWidth / 1280, 3.0),
+                                            Math.pow(windowHeight / 800, 3.5)
                                         );
-                                        const fontSize = Math.max(8, Math.min(16, 16 * scaleFactor));
+                                        const fontSize = Math.max(7, Math.min(13, 13 * scaleFactor));
                                         const dotSize = Math.max(6, Math.min(10, 10 * scaleFactor));
 
                                         return (
-                                            <div key={i} className="flex items-center group/item" style={{ gap: `${fontSize * 0.5}px` }}>
+                                            <div key={i} className="flex items-center group/item" style={{ gap: `${fontSize * 0.3}px` }}>
                                                 <div
                                                     className="rounded-full flex-shrink-0 shadow-sm transition-transform group-hover/item:scale-110"
                                                     style={{
