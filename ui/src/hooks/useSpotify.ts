@@ -25,8 +25,12 @@ interface SpotifyTokenResponse {
 export function useSpotify() {
     const [token, setToken] = useState<string | null>(localStorage.getItem('spotify_access_token'));
     const [track, setTrack] = useState<SpotifyTrack | null>(null);
+    const [localProgress, setLocalProgress] = useState<number>(0);
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!token);
+
     const isHandlingCallback = useRef(false);
+    const isSeeking = useRef(false);
+    const seekTimeout = useRef<any>(null);
 
     const logout = useCallback(() => {
         localStorage.removeItem('spotify_access_token');
@@ -35,6 +39,7 @@ export function useSpotify() {
         localStorage.removeItem('spotify_redirect_uri');
         setToken(null);
         setTrack(null);
+        setLocalProgress(0);
         setIsAuthenticated(false);
     }, []);
 
@@ -154,6 +159,7 @@ export function useSpotify() {
 
             if (response.status === 204) {
                 setTrack(null);
+                setLocalProgress(0);
                 return;
             }
 
@@ -164,21 +170,42 @@ export function useSpotify() {
 
             const data = await response.json();
             if (data && data.item) {
-                setTrack({
+                const newTrack = {
                     name: data.item.name,
                     artist: data.item.artists.map((a: any) => a.name).join(', '),
                     albumArt: data.item.album.images[0]?.url,
                     duration_ms: data.item.duration_ms,
                     progress_ms: data.progress_ms,
                     is_playing: data.is_playing,
-                });
+                };
+                setTrack(newTrack);
+
+                // Only sync local progress with API if we aren't currently seeking
+                if (!isSeeking.current) {
+                    setLocalProgress(data.progress_ms);
+                }
             } else {
                 setTrack(null);
+                setLocalProgress(0);
             }
         } catch (error) {
             console.error('Error fetching Spotify track:', error);
         }
     }, [token, refreshToken]);
+
+    // Local interpolator for smooth progress
+    useEffect(() => {
+        if (!track?.is_playing || isSeeking.current) return;
+
+        const interval = setInterval(() => {
+            setLocalProgress(prev => {
+                const next = prev + 100;
+                return next > track.duration_ms ? track.duration_ms : next;
+            });
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [track?.is_playing, track?.duration_ms]);
 
     const spotifyFetch = async (endpoint: string, method: string = 'GET', body?: any) => {
         if (!token) return;
@@ -219,7 +246,9 @@ export function useSpotify() {
             }
         }
 
-        setTimeout(() => fetchCurrentTrack(), 300);
+        // Use a slightly longer delay after seeking to let Spotify's internal state catch up
+        const delay = endpoint.startsWith('seek') ? 1500 : 500;
+        setTimeout(() => fetchCurrentTrack(), delay);
     };
 
     const togglePlayback = () => {
@@ -230,8 +259,19 @@ export function useSpotify() {
 
     const skipNext = () => spotifyFetch('next', 'POST');
     const skipPrevious = () => spotifyFetch('previous', 'POST');
+
     const seek = (position_ms: number) => {
-        if (track) setTrack({ ...track, progress_ms: position_ms });
+        // Optimistic update
+        setLocalProgress(position_ms);
+
+        // Stabilize: Lock API sync for 2 seconds to prevent "jumping back"
+        isSeeking.current = true;
+        if (seekTimeout.current) clearTimeout(seekTimeout.current);
+
+        seekTimeout.current = setTimeout(() => {
+            isSeeking.current = false;
+        }, 2000);
+
         spotifyFetch(`seek?position_ms=${position_ms}`, 'PUT');
     };
 
@@ -259,6 +299,7 @@ export function useSpotify() {
 
     return {
         track,
+        progress: localProgress, // Export the smooth local progress
         login,
         logout,
         isAuthenticated,

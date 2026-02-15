@@ -3,13 +3,25 @@ import { SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import SynapseHeader from '../layouts/SynapseHeader';
 import { useSpotify } from '../hooks/useSpotify';
 
+// Helper to format ms to m:ss
+const formatTime = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 export default function StatisticsPage() {
-    const { track, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
+    const { track, progress, login, logout, isAuthenticated, togglePlayback, skipNext, skipPrevious, seek } = useSpotify();
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString("en-US", {
         hour12: false,
         hour: "2-digit",
         minute: "2-digit",
     }));
+
+    // Local state to handle slider dragging smoothly
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragValue, setDragValue] = useState(0);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -177,10 +189,26 @@ export default function StatisticsPage() {
                                                 type="range"
                                                 min="0"
                                                 max={track.duration_ms}
-                                                value={track.progress_ms}
-                                                onChange={(e) => seek(parseInt(e.target.value))}
+                                                value={isDragging ? dragValue : progress}
+                                                onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                                    setIsDragging(true);
+                                                    setDragValue(parseInt(e.currentTarget.value));
+                                                }}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value);
+                                                    seek(val);
+                                                    setIsDragging(false);
+                                                }}
                                                 className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white hover:accent-lime transition-all"
                                             />
+                                            <div className="flex justify-between mt-1 px-0.5">
+                                                <span className="text-white/40 text-[10px] font-medium tabular-nums">
+                                                    {formatTime(isDragging ? dragValue : progress)}
+                                                </span>
+                                                <span className="text-white/40 text-[10px] font-medium tabular-nums">
+                                                    {formatTime(track.duration_ms)}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="flex justify-center items-center gap-6 lg:gap-8 min-h-[48px]">
