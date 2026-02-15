@@ -40,7 +40,7 @@ interface DashboardData {
     };
     distractions: {
         blockedCount: number;
-        topDistractions: { name: string; time: string }[];
+        topDistractions: { name: string; time: string; count: number; color: string }[];
     };
     tasks: { title: string; completed: boolean }[];
     streak: number;
@@ -71,9 +71,10 @@ const MOCK_DASHBOARD_DATA: DashboardData = {
     distractions: {
         blockedCount: 18,
         topDistractions: [
-            { name: "YouTube", time: "1h 20m" },
-            { name: "Twitter", time: "45m" },
-            { name: "Reddit", time: "30m" }
+            { name: "YouTube", time: "1h 20m", count: 100, color: "#D9F21A" },
+            { name: "Twitter", time: "45m", count: 32, color: "#A4B624" },
+            { name: "Reddit", time: "30m", count: 18, color: "#707A2E" },
+            { name: "Other", time: "15m", count: 12, color: "#4B4E38" }
         ]
     },
     tasks: [
@@ -397,15 +398,72 @@ export default function StatisticsPage() {
                                     </span>
                                 </div>
                             </div>
-                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-2 sm:p-2.5 flex flex-col gap-1 overflow-hidden">
-                                <h2 className="text-[10px] sm:text-xs md:text-sm font-semibold text-lime leading-tight">Top Distractions</h2>
-                                <div className="flex flex-col gap-1 mt-auto">
-                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions.slice(0, 2).map((item, i) => (
-                                        <div key={i} className="flex justify-between items-center bg-white/5 px-1.5 py-0.5 rounded">
-                                            <span className="text-[8px] sm:text-[9px] text-white/80 truncate max-w-[60%]">{item.name}</span>
-                                            <span className="text-[8px] sm:text-[9px] text-lime font-bold">{item.time}</span>
+                            <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-2 sm:p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                                <div className="flex flex-col gap-0.5">
+                                    <h2 className="text-[12px] sm:text-sm md:text-base font-bold text-lime leading-tight">Top Distractions</h2>
+                                    <p className="text-[10px] sm:text-[11px] font-medium text-white/40">This Week</p>
+                                </div>
+
+                                {/* GitHub-style Distribution Bar v3 */}
+                                <div className="flex h-2.5 sm:h-3 w-full mt-2 bg-white/5 gap-1.5 items-center">
+                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => (
+                                        <div
+                                            key={i}
+                                            className="group h-full relative"
+                                            style={{ flex: item.count }}
+                                        >
+                                            <div
+                                                className="w-full h-full rounded-full transition-all duration-300 hover:brightness-125 cursor-help shadow-sm"
+                                                style={{ backgroundColor: item.color }}
+                                            />
+                                            {/* Custom Hover Label (Matching Bar Graph Style) */}
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                                                <div className="bg-lime text-synapse-dark text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded shadow-xl whitespace-nowrap flex flex-col items-center leading-tight">
+                                                    <span className="uppercase tracking-tighter opacity-70 text-[7px]">{item.name}</span>
+                                                    <span>{item.count} dist. ({item.time})</span>
+                                                </div>
+                                                {/* Tooltip Arrow */}
+                                                <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-lime mx-auto"></div>
+                                            </div>
                                         </div>
                                     ))}
+                                </div>
+
+                                {/* Legend: Adaptive Grid (1x4 or 2x2) with Dynamic Scaling */}
+                                <div
+                                    className={`mt-auto py-0.5 grid gap-x-4`}
+                                    style={{
+                                        gridTemplateColumns: windowWidth < 1100 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(1, minmax(0, 1fr))',
+                                        gap: `${Math.max(2, Math.min(6, 6 * Math.min(windowWidth / 1280, windowHeight / 800)))}px`
+                                    }}
+                                >
+                                    {MOCK_DASHBOARD_DATA.distractions.topDistractions.map((item, i) => {
+                                        const scaleFactor = Math.min(
+                                            Math.pow(windowWidth / 1280, 1.2),
+                                            Math.pow(windowHeight / 800, 2.0)
+                                        );
+                                        const fontSize = Math.max(8, Math.min(16, 16 * scaleFactor));
+                                        const dotSize = Math.max(6, Math.min(10, 10 * scaleFactor));
+
+                                        return (
+                                            <div key={i} className="flex items-center group/item" style={{ gap: `${fontSize * 0.5}px` }}>
+                                                <div
+                                                    className="rounded-full flex-shrink-0 shadow-sm transition-transform group-hover/item:scale-110"
+                                                    style={{
+                                                        backgroundColor: item.color,
+                                                        width: `${dotSize}px`,
+                                                        height: `${dotSize}px`
+                                                    }}
+                                                />
+                                                <span
+                                                    className="font-medium text-white/80 tracking-tight truncate transition-colors group-hover/item:text-white leading-tight"
+                                                    style={{ fontSize: `${fontSize}px` }}
+                                                >
+                                                    {item.name}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
