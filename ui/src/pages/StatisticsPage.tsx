@@ -120,7 +120,7 @@ export default function StatisticsPage() {
                     </div>
 
                     {/* COLUMN 2: Daily Goal + Distractions + Task List + Spotify */}
-                    <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 min-h-0">
+                    <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 h-full md:row-span-2 lg:row-span-1">
                         <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-1.5 sm:p-2 md:p-2.5 flex flex-col justify-between flex-shrink-0">
                             <div>
                                 <h2 className="text-xs sm:text-sm md:text-base font-semibold text-lime tracking-tight leading-tight">Daily Goal</h2>
@@ -161,7 +161,7 @@ export default function StatisticsPage() {
                         </div>
 
                         {/* Spotify player - shown only on small screens below Task List */}
-                        <div className="block lg:hidden bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col gap-1.5 sm:gap-2 md:gap-3 border border-white/5 flex-1 lg:flex-shrink-0">
+                        <div className="block lg:hidden bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col gap-1.5 sm:gap-2 md:gap-3 border border-white/5 flex-1 lg:flex-shrink-0 justify-center">
                             {isAuthenticated && track ? (
                                 <div className="flex flex-col gap-2">
                                     <div className="text-center">
@@ -236,7 +236,7 @@ export default function StatisticsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col flex-shrink-0">
+                        <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col flex-1 lg:flex-shrink-0">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
                                 <h3 className="text-[10px] sm:text-xs md:text-sm font-bold text-lime uppercase">
                                     {format(currentMonth, 'MMMM yyyy')}
@@ -285,23 +285,23 @@ export default function StatisticsPage() {
                         </div>
 
                         {/* Spotify player - shown only on large screens below Calendar */}
-                        <div className="hidden lg:block bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 flex flex-col gap-1.5 sm:gap-2 md:gap-3 border border-white/5 flex-1 min-h-0">
+                        <div className="hidden lg:grid grid-rows-[1fr_auto] bg-white/10 backdrop-blur-md rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-3 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 border border-white/5 flex-1 min-h-0 overflow-hidden">
                             {isAuthenticated && track ? (
                                 <>
-                                    <div className="w-full rounded-md sm:rounded-lg md:rounded-xl overflow-hidden aspect-square max-h-[120px] sm:max-h-[150px] md:max-h-[180px] lg:max-h-[200px] mx-auto relative group border-2 border-white/20">
+                                    <div className="min-h-0 relative w-full h-full overflow-hidden flex items-center justify-center p-2">
                                         <img
                                             src={track.albumArt || "https://cdn.builder.io/api/v1/image/assets/TEMP/3b1994b2a7713d76ffb8d0e4e3f6f86d662d4483"}
-                                            className="w-full h-full object-cover opacity-90"
+                                            className="h-full w-auto aspect-square object-cover rounded-md sm:rounded-lg md:rounded-xl border-2 border-white/20 shadow-lg"
                                             alt="Song Art"
                                         />
                                         <button
                                             onClick={logout}
-                                            className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/50 hover:bg-black/80 text-white/70 hover:text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[9px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="absolute top-3 right-3 bg-black/50 hover:bg-black/80 text-white/70 hover:text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[8px] sm:text-[9px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                         >
                                             Disconnect
                                         </button>
                                     </div>
-                                    <div className="text-center mt-auto flex flex-col gap-1 sm:gap-1.5 md:gap-2">
+                                    <div className="text-center flex flex-col gap-1 sm:gap-1.5 md:gap-2 relative z-20">
                                         <div className="mb-0.5 sm:mb-1">
                                             <p className="text-white font-bold text-xs sm:text-sm md:text-base truncate">{track.name}</p>
                                             <p className="text-white/60 text-[10px] sm:text-xs truncate">{track.artist}</p>
