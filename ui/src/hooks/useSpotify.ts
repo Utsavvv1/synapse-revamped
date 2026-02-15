@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 const CLIENT_ID = 'aea2d8f6f68b44ab954129a2ea3f0862';
 const AUTH_ENDPOINT = 'https://accounts.spotify.com/authorize';
-const SCOPES = 'user-read-currently-playing user-read-playback-state';
+const SCOPES = 'user-read-currently-playing user-read-playback-state user-modify-playback-state';
 
 interface SpotifyTrack {
     name: string;
@@ -27,6 +27,16 @@ export function useSpotify() {
     const [track, setTrack] = useState<SpotifyTrack | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!token);
     const isHandlingCallback = useRef(false);
+
+    const logout = useCallback(() => {
+        localStorage.removeItem('spotify_access_token');
+        localStorage.removeItem('spotify_refresh_token');
+        localStorage.removeItem('spotify_code_verifier');
+        localStorage.removeItem('spotify_redirect_uri');
+        setToken(null);
+        setTrack(null);
+        setIsAuthenticated(false);
+    }, []);
 
     // PKCE Utilities
     const generateRandomString = (length: number) => {
@@ -57,11 +67,6 @@ export function useSpotify() {
         window.localStorage.setItem('spotify_code_verifier', codeVerifier);
         window.localStorage.setItem('spotify_redirect_uri', redirectUri);
 
-        console.log('--- Spotify Auth Debug ---');
-        console.log('window.location.origin:', window.location.origin);
-        console.log('window.location.pathname:', window.location.pathname);
-        console.log('Redirect URI being sent:', redirectUri);
-
         const params = new URLSearchParams({
             response_type: 'code',
             client_id: CLIENT_ID,
@@ -71,11 +76,7 @@ export function useSpotify() {
             redirect_uri: redirectUri,
         });
 
-        const authUrl = `${AUTH_ENDPOINT}?${params.toString()}`;
-        console.log('Full Auth URL:', authUrl);
-        console.log('---------------------------');
-
-        window.location.href = authUrl;
+        window.location.href = `${AUTH_ENDPOINT}?${params.toString()}`;
     }
 
     const handleCallback = useCallback(async (code: string) => {
@@ -84,10 +85,6 @@ export function useSpotify() {
 
         const codeVerifier = window.localStorage.getItem('spotify_code_verifier');
         const redirectUri = window.localStorage.getItem('spotify_redirect_uri');
-
-        console.log('Exchanging code for token via Rust proxy...');
-        console.log('Using Code:', code);
-        console.log('Using Redirect URI:', redirectUri);
 
         try {
             const data = await invoke<SpotifyTokenResponse>('backend_spotify_token_exchange', {
@@ -98,30 +95,27 @@ export function useSpotify() {
             });
 
             if (data.access_token) {
-                console.log('Successfully received access token!');
                 localStorage.setItem('spotify_access_token', data.access_token);
                 if (data.refresh_token) {
                     localStorage.setItem('spotify_refresh_token', data.refresh_token);
                 }
                 setToken(data.access_token);
                 setIsAuthenticated(true);
-                // Clear URL params
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         } catch (error) {
             console.error('Spotify token exchange failed:', error);
-            alert(`Spotify Auth Error: ${error}`);
+            logout();
+            alert(`Spotify Auth Error: ${error}\n\nPlease try connecting again.`);
             window.history.replaceState({}, document.title, window.location.pathname);
         } finally {
             isHandlingCallback.current = false;
         }
-    }, []);
+    }, [logout]);
 
     const refreshToken = useCallback(async () => {
         const refresh_token = localStorage.getItem('spotify_refresh_token');
-        if (!refresh_token) return;
-
-        console.log('Refreshing token via Rust proxy...');
+        if (!refresh_token) return null;
 
         try {
             const data = await invoke<SpotifyTokenResponse>('backend_spotify_refresh_token', {
@@ -132,26 +126,39 @@ export function useSpotify() {
             if (data.access_token) {
                 localStorage.setItem('spotify_access_token', data.access_token);
                 setToken(data.access_token);
+                return data.access_token;
             }
         } catch (error) {
             console.error('Spotify token refresh failed:', error);
+            if (error && typeof error === 'string' && error.includes('invalid_grant')) {
+                logout();
+            }
         }
-    }, []);
+        return null;
+    }, [logout]);
 
-    const fetchCurrentTrack = useCallback(async () => {
-        if (!token) return;
+    const fetchCurrentTrack = useCallback(async (currentToken?: string) => {
+        const activeToken = currentToken || token;
+        if (!activeToken) return;
 
         try {
             const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${activeToken}` },
             });
 
-            if (response.status === 204 || response.status > 400) {
-                if (response.status === 401) {
-                    await refreshToken();
-                } else if (response.status !== 204) {
-                    setTrack(null);
-                }
+            if (response.status === 401) {
+                const newToken = await refreshToken();
+                if (newToken) fetchCurrentTrack(newToken);
+                return;
+            }
+
+            if (response.status === 204) {
+                setTrack(null);
+                return;
+            }
+
+            if (!response.ok) {
+                setTrack(null);
                 return;
             }
 
@@ -173,6 +180,61 @@ export function useSpotify() {
         }
     }, [token, refreshToken]);
 
+    const spotifyFetch = async (endpoint: string, method: string = 'GET', body?: any) => {
+        if (!token) return;
+        const url = `https://api.spotify.com/v1/me/player/${endpoint}`;
+
+        let response = await fetch(url, {
+            method,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+        });
+
+        if (response.status === 401) {
+            const newToken = await refreshToken();
+            if (newToken) {
+                response = await fetch(url, {
+                    method,
+                    headers: {
+                        Authorization: `Bearer ${newToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: body ? JSON.stringify(body) : undefined,
+                });
+            }
+        }
+
+        if (!response.ok && response.status !== 204) {
+            try {
+                const err = await response.json();
+                console.error(`Spotify ${method} ${endpoint} failed:`, err);
+                if (response.status === 403) {
+                    alert("Spotify Premium is required for playback controls.");
+                }
+            } catch (e) {
+                console.error(`Spotify ${method} ${endpoint} failed with status ${response.status}`);
+            }
+        }
+
+        setTimeout(() => fetchCurrentTrack(), 300);
+    };
+
+    const togglePlayback = () => {
+        const endpoint = track?.is_playing ? 'pause' : 'play';
+        spotifyFetch(endpoint, 'PUT');
+        if (track) setTrack({ ...track, is_playing: !track.is_playing });
+    };
+
+    const skipNext = () => spotifyFetch('next', 'POST');
+    const skipPrevious = () => spotifyFetch('previous', 'POST');
+    const seek = (position_ms: number) => {
+        if (track) setTrack({ ...track, progress_ms: position_ms });
+        spotifyFetch(`seek?position_ms=${position_ms}`, 'PUT');
+    };
+
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
@@ -180,20 +242,29 @@ export function useSpotify() {
 
         if (error) {
             console.error('Spotify Auth Query Error:', error);
-            alert(`Spotify Error: ${error}`);
+            logout();
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (code) {
             handleCallback(code);
         }
-    }, [handleCallback]);
+    }, [handleCallback, logout]);
 
     useEffect(() => {
         if (isAuthenticated) {
             fetchCurrentTrack();
-            const interval = setInterval(fetchCurrentTrack, 5000);
+            const interval = setInterval(() => fetchCurrentTrack(), 3000);
             return () => clearInterval(interval);
         }
     }, [isAuthenticated, fetchCurrentTrack]);
 
-    return { track, login, isAuthenticated };
+    return {
+        track,
+        login,
+        logout,
+        isAuthenticated,
+        togglePlayback,
+        skipNext,
+        skipPrevious,
+        seek
+    };
 }
