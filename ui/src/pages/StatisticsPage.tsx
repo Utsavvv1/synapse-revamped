@@ -159,6 +159,43 @@ export default function StatisticsPage() {
 
     const gridDensityTier = windowWidth < 1024 ? 'small' : windowWidth < 1280 ? 'medium' : 'large';
 
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+    const [forceCompact, setForceCompact] = useState(false);
+
+    // Overflow Detection & Hysteresis Logic
+    useEffect(() => {
+        const checkOverflow = () => {
+            const el = scrollContainerRef.current;
+            if (!el) return;
+
+            const isOverflowing = el.scrollHeight > el.clientHeight;
+
+            // If NOT currently forced compact, but we are overflowing -> Force Compact (2x2)
+            if (!forceCompact && isOverflowing) {
+                setForceCompact(true);
+            }
+            // If CURRENTLY forced compact, only revert if we have SIGNIFICANT extra space (hysteresis to prevent flicker)
+            // Buffer ~80px (enough for 2 extra rows + gaps)
+            else if (forceCompact && (el.clientHeight - el.scrollHeight > 80)) {
+                setForceCompact(false);
+            }
+        };
+
+        const wrapper = scrollContainerRef.current;
+        if (!wrapper) return;
+
+        const observer = new ResizeObserver(checkOverflow);
+        observer.observe(wrapper);
+
+        // Also check on window resize
+        window.addEventListener('resize', checkOverflow);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', checkOverflow);
+        };
+    }, [forceCompact, windowDimensions]); // Re-run when forceCompact changes to check if we can revert
+
     return (
         <div
             className="h-screen w-screen p-2 sm:p-3 md:p-4 lg:p-6 bg-black bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col font-sans selection:bg-lime/30"
@@ -172,7 +209,10 @@ export default function StatisticsPage() {
                 <SynapseHeader currentTime={currentTime} />
             </div>
             <div className="max-w-[1800px] w-full mx-auto flex-1 flex flex-col min-h-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 flex-1 min-h-0 overflow-y-auto">
+                <div
+                    ref={scrollContainerRef}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 flex-1 min-h-0 overflow-y-auto"
+                >
 
                     {/* COLUMN 1: Dashboard Title + Weekly Summary + Stats Row */}
                     <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 min-h-0">
@@ -521,9 +561,11 @@ export default function StatisticsPage() {
                                 {/* Large Mode Legend: Adaptive Grid (1x4 or 2x2) with Dynamic Scaling */}
                                 {windowWidth >= 1024 && (
                                     <div
-                                        className={`mt-1 py-0.5 grid gap-x-4`} // Changed mt-auto to mt-1 for reduced gap
+                                        className={`mt-auto py-0.5 grid`}
                                         style={{
-                                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', // Force 2 columns (2x2)
+                                            // Stack vertically (1 column) if no overflow forced compact
+                                            // Otherwise use 2 columns (2x2)
+                                            gridTemplateColumns: !forceCompact ? 'repeat(1, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))',
                                             gap: `${Math.max(1, 4 * (windowHeight / 800))}px 8px`
                                         }}
                                     >
