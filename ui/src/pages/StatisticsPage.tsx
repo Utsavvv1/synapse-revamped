@@ -442,7 +442,9 @@ export default function StatisticsPage() {
                             <div className="bg-dark-bg rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 flex flex-col gap-1 overflow-hidden">
                                 <div className="flex flex-col gap-0.5">
                                     <h2 className="text-[12px] sm:text-sm md:text-base font-bold text-lime leading-tight">Top Distractions</h2>
-                                    <p className="text-[10px] sm:text-[11px] font-medium text-white/40">This Week</p>
+                                    {windowWidth >= 1024 && (
+                                        <p className="text-[10px] sm:text-[11px] font-medium text-white/40">This Week</p>
+                                    )}
                                 </div>
 
                                 {/* Distraction Distribution View (Responsive Layout Switch) */}
