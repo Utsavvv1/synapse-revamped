@@ -30,11 +30,22 @@ module.exports = {
         'synapse-accent': "hsl(var(--synapse-accent))",
         'synapse-glass': "hsl(var(--synapse-glass))",
         'synapse-text-light': "hsl(var(--synapse-text-light))",
+        // Dashboard colors
+        lime: "hsl(var(--lime))",
+        "lime-dark": "hsl(var(--lime-dark))",
+        "dark-green": "hsl(var(--dark-green))",
+        "dark-bg": "hsl(var(--dark-bg))",
       },
       fontFamily: {
+        sans: ['Wix Madefor Display', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         instrument: ["'Instrument Serif'", 'serif'],
         dmserif: ["'DM Serif Text'", 'serif'],
         wix: ["'Wix Madefor Text'", 'sans-serif'],
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       letterSpacing: {
         tightest: '-0.07em', // -7%
