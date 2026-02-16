@@ -211,7 +211,7 @@ export default function StatisticsPage() {
             <div className="max-w-[1800px] w-full mx-auto flex-1 flex flex-col min-h-0">
                 <div
                     ref={scrollContainerRef}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 flex-1 min-h-0 overflow-y-auto"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 flex-1 min-h-0 overflow-y-auto pb-2"
                 >
 
                     {/* COLUMN 1: Dashboard Title + Weekly Summary + Stats Row */}
