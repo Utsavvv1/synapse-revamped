@@ -359,15 +359,15 @@ export default function StatisticsPage() {
                         <div className="bg-dark-bg rounded-lg sm:rounded-xl md:rounded-2xl p-1.5 sm:p-2 md:p-2.5 flex flex-col justify-between flex-shrink-0">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h2 className="text-xs sm:text-sm md:text-base font-semibold text-lime tracking-tight leading-tight">Daily Goal</h2>
-                                    <p className="text-[10px] sm:text-xs md:text-sm text-lime/80">{MOCK_DASHBOARD_DATA.dailyGoal.target}</p>
+                                    <h2 className="text-xs sm:text-xs md:text-sm lg:text-base font-semibold text-lime tracking-tight leading-tight">Daily Goal</h2>
+                                    <p className="text-[10px] sm:text-[11px] md:text-sm text-lime/80">{MOCK_DASHBOARD_DATA.dailyGoal.target}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs sm:text-sm font-bold text-lime">{MOCK_DASHBOARD_DATA.dailyGoal.progress}%</p>
+                                    <p className="text-xs sm:text-sm lg:text-base font-bold text-lime">{MOCK_DASHBOARD_DATA.dailyGoal.progress}%</p>
                                 </div>
                             </div>
-                            <div className="flex justify-center mt-2 sm:mt-4 relative h-16 sm:h-20 md:h-24 overflow-hidden">
-                                <svg className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 -rotate-[180deg]" viewBox="0 0 100 100">
+                            <div className="flex justify-center mt-1 sm:mt-2 lg:mt-4 relative h-12 sm:h-16 md:h-20 lg:h-24 overflow-hidden">
+                                <svg className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 -rotate-[180deg]" viewBox="0 0 100 100">
                                     {/* Background Arc */}
                                     <circle
                                         cx="50"
@@ -395,8 +395,8 @@ export default function StatisticsPage() {
                                     />
                                 </svg>
                                 <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1">
-                                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-none">{MOCK_DASHBOARD_DATA.dailyGoal.progress}%</p>
-                                    <p className="text-[8px] sm:text-[10px] text-white/40 font-bold uppercase tracking-widest">Progress</p>
+                                    <p className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-white leading-none">{MOCK_DASHBOARD_DATA.dailyGoal.progress}%</p>
+                                    <p className="text-[8px] sm:text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest">Progress</p>
                                 </div>
                             </div>
                         </div>
