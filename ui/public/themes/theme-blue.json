@@ -1,5 +1,10 @@
 {
   "primarycolor": "216.9 86.7%  8.8%",
   "secondarycolor": "19.2  90.0% 84.3%",
-  "synapse-bg-image": "url('/images/mountain.jpg')"
+  "synapse-bg-image": "url('/images/mountain.jpg')",
+  "dash-dark": "217 87% 9%",
+  "dash-forest": "328 11% 22%",
+  "dash-olive": "12 26% 38%",
+  "dash-moss": "17 40% 53%",
+  "dash-lime": "19 83% 67%"
 }

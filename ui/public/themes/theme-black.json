@@ -1,5 +1,10 @@
 {
   "primarycolor": "0.0  0.0%  15.3%",
   "secondarycolor": "0.0 0.0% 95%",
-  "synapse-bg-image": "url('/images/night-car.jpg')"
+  "synapse-bg-image": "url('/images/night-car.jpg')",
+  "dash-dark": "0 0% 15%",
+  "dash-forest": "0 0% 35%",
+  "dash-olive": "0 0% 55%",
+  "dash-moss": "0 0% 75%",
+  "dash-lime": "0 0% 95%"
 }

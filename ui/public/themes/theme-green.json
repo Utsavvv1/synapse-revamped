@@ -1,5 +1,10 @@
 {
   "primarycolor": "73 85% 60%",
   "secondarycolor": "172 64% 6%",
-  "synapse-bg-image": "url('/images/rice-terraces-bg.jpg')"
+  "synapse-bg-image": "url('/images/rice-terraces-bg.jpg')",
+  "dash-dark": "176 57% 5%",
+  "dash-forest": "87 37% 20%",
+  "dash-olive": "75 45% 33%",
+  "dash-moss": "70 49% 44%",
+  "dash-lime": "69 66% 56%"
 }

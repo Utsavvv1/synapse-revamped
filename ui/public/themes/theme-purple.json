@@ -1,5 +1,10 @@
 {
   "primarycolor": "270 33% 65%",
   "secondarycolor": "270 35% 14%",
-  "synapse-bg-image": "url('/images/purple-town-bg.jpg')"
+  "synapse-bg-image": "url('/images/purple-town-bg.jpg')",
+  "dash-dark": "268 37% 14%",
+  "dash-forest": "267 25% 27%",
+  "dash-olive": "267 22% 40%",
+  "dash-moss": "267 23% 53%",
+  "dash-lime": "267 36% 65%"
 }

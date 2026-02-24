@@ -32,11 +32,11 @@ module.exports = {
         'synapse-text-light': "hsl(var(--synapse-text-light))",
         // Dashboard colors
         // Dashboard colors (Full 5-color palette)
-        "dash-dark": "#061615",
-        "dash-forest": "#364721",
-        "dash-olive": "#65782E",
-        "dash-moss": "#95A83A",
-        "dash-lime": "#C4D946",
+        "dash-dark": "hsl(var(--dash-dark))",
+        "dash-forest": "hsl(var(--dash-forest))",
+        "dash-olive": "hsl(var(--dash-olive))",
+        "dash-moss": "hsl(var(--dash-moss))",
+        "dash-lime": "hsl(var(--dash-lime))",
       },
       fontFamily: {
         sans: ['Wix Madefor Display', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
