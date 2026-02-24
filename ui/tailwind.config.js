@@ -31,10 +31,12 @@ module.exports = {
         'synapse-glass': "hsl(var(--synapse-glass))",
         'synapse-text-light': "hsl(var(--synapse-text-light))",
         // Dashboard colors
-        lime: "hsl(var(--lime))",
-        "lime-dark": "hsl(var(--lime-dark))",
-        "dark-green": "hsl(var(--dark-green))",
-        "dark-bg": "hsl(var(--dark-bg))",
+        // Dashboard colors (Full 5-color palette)
+        "dash-dark": "#061615",
+        "dash-forest": "#364721",
+        "dash-olive": "#65782E",
+        "dash-moss": "#95A83A",
+        "dash-lime": "#C4D946",
       },
       fontFamily: {
         sans: ['Wix Madefor Display', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],

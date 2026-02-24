@@ -30,14 +30,18 @@
   --synapse-text-light: 220 9% 70%;
 
   /* Dashboard colors */
-  --lime: 67 65% 64%;
-  --lime-dark: 69 49% 45%;
-  --dark-green: 75 37% 21%;
-  --dark-bg: 171 56% 6%;
+  --dash-dark: 176 57% 5%;
+  --dash-forest: 87 37% 20%;
+  --dash-olive: 75 45% 33%;
+  --dash-moss: 70 49% 44%;
+  --dash-lime: 69 66% 56%;
 }
-html, body {
+
+html,
+body {
   overscroll-behavior: none;
 }
+
 .dark {
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
@@ -64,11 +68,6 @@ html, body {
   --synapse-glass: 220 13% 25% / 0.3;
   --synapse-text-light: 220 9% 80%;
 
-  /* Dashboard colors (keep same for consistency in this design) */
-  --lime: 67 65% 64%;
-  --lime-dark: 69 49% 45%;
-  --dark-green: 75 37% 21%;
-  --dark-bg: 171 56% 6%;
 }
 
 * {

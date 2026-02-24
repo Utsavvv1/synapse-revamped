@@ -62,10 +62,11 @@
     /* Synapse app background image */
 
     /* Dashboard colors */
-    --lime: 67 65% 64%;
-    --lime-dark: 69 49% 45%;
-    --dark-green: 75 37% 21%;
-    --dark-bg: 171 56% 6%;
+    --dash-dark: 176 57% 5%;
+    --dash-forest: 87 37% 20%;
+    --dash-olive: 75 45% 33%;
+    --dash-moss: 70 49% 44%;
+    --dash-lime: 69 66% 56%;
   }
 
   .dark {
@@ -109,10 +110,11 @@
     /* Focus ring color (dark mode) */
 
     /* Dashboard colors (keep same for consistency) */
-    --lime: 67 65% 64%;
-    --lime-dark: 69 49% 45%;
-    --dark-green: 75 37% 21%;
-    --dark-bg: 171 56% 6%;
+    --dash-dark: 176 57% 5%;
+    --dash-forest: 87 37% 20%;
+    --dash-olive: 75 45% 33%;
+    --dash-moss: 70 49% 44%;
+    --dash-lime: 69 66% 56%;
   }
 }
 
